@@ -6,6 +6,10 @@ type StoryScene = {
   title: string;
   description: string;
   duration: number;
+  visualPrompt: string;
+  videoPrompt: string;
+  voiceOver: string;
+  musicSfx: string;
 };
 
 type StoryProject = {
@@ -27,9 +31,7 @@ function App() {
   const [style, setStyle] = useState("3D Cartoon");
 
   const [prompt, setPrompt] = useState("");
-
   const [project, setProject] = useState<StoryProject | null>(null);
-
   const [isGenerating, setIsGenerating] = useState(false);
 
   const getMinutes = () => {
@@ -146,9 +148,7 @@ function App() {
 
     setTimeout(() => {
       const totalScenes = getSceneCount();
-
       const characters = generateCharacters(prompt);
-
       const scenes: StoryScene[] = [];
 
       const secondsPerScene = Math.max(
@@ -157,20 +157,44 @@ function App() {
       );
 
       for (let i = 1; i <= totalScenes; i++) {
+        const description = generateSceneDescription(
+          i,
+          totalScenes,
+          prompt
+        );
+
         scenes.push({
           number: i,
+
           title:
             i === 1
               ? "The Beginning"
               : i === totalScenes
               ? "The Happy Ending"
               : `Adventure Scene ${i}`,
-          description: generateSceneDescription(
-            i,
-            totalScenes,
-            prompt
-          ),
+
+          description,
+
           duration: secondsPerScene,
+
+          visualPrompt:
+            `${style} cartoon scene, ${description}, ` +
+            `consistent characters, cinematic composition, ` +
+            `detailed environment, expressive characters, ` +
+            `high quality animation style.`,
+
+          videoPrompt:
+            `Create a ${secondsPerScene}-second ${style} animation. ` +
+            `${description} ` +
+            `Use smooth character movement, cinematic camera motion, ` +
+            `natural expressions and consistent character design.`,
+
+          voiceOver:
+            `${description}`,
+
+          musicSfx:
+            `Background music matching the mood of the scene, ` +
+            `with appropriate cartoon sound effects.`,
         });
       }
 
@@ -212,7 +236,21 @@ function App() {
       return;
     }
 
-    setProject(JSON.parse(saved));
+    try {
+      const savedProject = JSON.parse(saved) as StoryProject;
+      setProject(savedProject);
+    } catch {
+      alert("Saved project could not be loaded.");
+    }
+  };
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Copied to clipboard.");
+    } catch {
+      alert("Could not copy text.");
+    }
   };
 
   return (
@@ -348,9 +386,7 @@ function App() {
 
               <select
                 value={projectType}
-                onChange={(e) =>
-                  setProjectType(e.target.value)
-                }
+                onChange={(e) => setProjectType(e.target.value)}
               >
                 <option>Cartoon Story</option>
                 <option>Kids Poem</option>
@@ -378,9 +414,7 @@ function App() {
 
               <select
                 value={language}
-                onChange={(e) =>
-                  setLanguage(e.target.value)
-                }
+                onChange={(e) => setLanguage(e.target.value)}
               >
                 <option>English</option>
                 <option>Urdu</option>
@@ -393,9 +427,7 @@ function App() {
 
               <select
                 value={style}
-                onChange={(e) =>
-                  setStyle(e.target.value)
-                }
+                onChange={(e) => setStyle(e.target.value)}
               >
                 <option>3D Cartoon</option>
                 <option>2D Cartoon</option>
@@ -485,11 +517,12 @@ function App() {
             <div className="scenes-section">
               <div className="section-heading">
                 <div>
-                  <h2>🎬 Scene Plan</h2>
+                  <h2>🎬 Scene Production Plan</h2>
 
                   <p>
-                    Your video has been divided into individual
-                    production scenes.
+                    Each scene now includes production-ready
+                    prompts for visual generation, animation,
+                    narration and sound.
                   </p>
                 </div>
               </div>
@@ -508,6 +541,72 @@ function App() {
                       <h3>{scene.title}</h3>
 
                       <p>{scene.description}</p>
+
+                      <div className="production-grid">
+                        <div className="production-box">
+                          <div className="production-heading">
+                            <strong>🖼️ Visual Prompt</strong>
+
+                            <button
+                              onClick={() =>
+                                copyText(scene.visualPrompt)
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+
+                          <p>{scene.visualPrompt}</p>
+                        </div>
+
+                        <div className="production-box">
+                          <div className="production-heading">
+                            <strong>🎥 Video Prompt</strong>
+
+                            <button
+                              onClick={() =>
+                                copyText(scene.videoPrompt)
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+
+                          <p>{scene.videoPrompt}</p>
+                        </div>
+
+                        <div className="production-box">
+                          <div className="production-heading">
+                            <strong>🎙️ Voice Over</strong>
+
+                            <button
+                              onClick={() =>
+                                copyText(scene.voiceOver)
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+
+                          <p>{scene.voiceOver}</p>
+                        </div>
+
+                        <div className="production-box">
+                          <div className="production-heading">
+                            <strong>🎵 Music & SFX</strong>
+
+                            <button
+                              onClick={() =>
+                                copyText(scene.musicSfx)
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+
+                          <p>{scene.musicSfx}</p>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="scene-duration">
