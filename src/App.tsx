@@ -39,18 +39,17 @@ function App() {
   const [prompt, setPrompt] = useState("");
   const [project, setProject] = useState<StoryProject | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedScene, setSelectedScene] = useState(0);
 
   const getMinutes = () => Number(duration.split(" ")[0]);
 
   const getSceneCount = () => {
     const minutes = getMinutes();
-
     if (minutes === 1) return 6;
     if (minutes === 5) return 30;
     if (minutes === 10) return 60;
     if (minutes === 20) return 120;
     if (minutes === 30) return 180;
-
     return minutes * 6;
   };
 
@@ -60,13 +59,13 @@ function App() {
     const lower = storyPrompt.toLowerCase();
     const characters: CharacterProfile[] = [];
 
-    const addCharacter = (
+    const add = (
       name: string,
       role: string,
       personality: string,
       appearance: string
     ) => {
-      if (!characters.some((character) => character.name === name)) {
+      if (!characters.some((c) => c.name === name)) {
         characters.push({
           name,
           role,
@@ -77,43 +76,43 @@ function App() {
     };
 
     if (lower.includes("rabbit") || lower.includes("bunny")) {
-      addCharacter(
+      add(
         "Bunny",
         "Main Character",
         "Curious, brave and kind",
-        "Small fluffy rabbit, soft white fur, long ears, expressive eyes and a tiny blue backpack"
+        "Small fluffy rabbit with white fur, long ears, expressive eyes and a blue backpack"
       );
     }
 
     if (lower.includes("bear")) {
-      addCharacter(
+      add(
         "Benny Bear",
         "Best Friend",
         "Friendly, gentle and protective",
-        "Cute brown bear with round ears, warm eyes and a small green scarf"
+        "Cute brown bear with round ears, warm eyes and a green scarf"
       );
     }
 
     if (lower.includes("fox")) {
-      addCharacter(
+      add(
         "Finn Fox",
         "Adventure Friend",
         "Clever, playful and energetic",
-        "Orange fox with a white chest, fluffy tail and a small yellow satchel"
+        "Orange fox with a white chest, fluffy tail and yellow satchel"
       );
     }
 
     if (lower.includes("cat")) {
-      addCharacter(
+      add(
         "Milo Cat",
         "Main Character",
         "Playful, clever and curious",
-        "Small orange cat with bright green eyes and a red collar"
+        "Small orange cat with green eyes and a red collar"
       );
     }
 
     if (lower.includes("dog")) {
-      addCharacter(
+      add(
         "Buddy Dog",
         "Best Friend",
         "Loyal, cheerful and brave",
@@ -122,59 +121,59 @@ function App() {
     }
 
     if (lower.includes("bird")) {
-      addCharacter(
+      add(
         "Sunny Bird",
         "Adventure Friend",
         "Cheerful, fast and helpful",
-        "Small bright yellow bird with tiny wings and expressive eyes"
+        "Small yellow bird with tiny wings and expressive eyes"
       );
     }
 
     if (lower.includes("lion")) {
-      addCharacter(
+      add(
         "Leo Lion",
         "Main Character",
         "Brave, caring and confident",
-        "Young golden lion with a soft brown mane and large expressive eyes"
+        "Young golden lion with a soft brown mane and expressive eyes"
       );
     }
 
     if (lower.includes("princess")) {
-      addCharacter(
+      add(
         "Princess Lily",
         "Main Character",
         "Kind, courageous and compassionate",
-        "Young princess with long brown hair, pink dress and a small silver crown"
+        "Young princess with long brown hair, pink dress and silver crown"
       );
     }
 
     if (lower.includes("dragon")) {
-      addCharacter(
+      add(
         "Draco",
         "Adventure Friend",
         "Powerful, playful and loyal",
-        "Small friendly green dragon with tiny wings and glowing blue eyes"
+        "Small friendly green dragon with tiny wings and blue eyes"
       );
     }
 
     if (characters.length === 0) {
-      addCharacter(
+      add(
         "Alex",
         "Main Character",
         "Curious, brave and kind",
-        "Young cartoon hero with expressive eyes, colorful clothes and a small adventure backpack"
+        "Young cartoon hero with expressive eyes, colorful clothes and an adventure backpack"
       );
 
-      addCharacter(
+      add(
         "Mia",
         "Best Friend",
         "Smart, cheerful and supportive",
-        "Young cartoon girl with expressive eyes, colorful clothes and a small yellow backpack"
+        "Young cartoon girl with expressive eyes, colorful clothes and a yellow backpack"
       );
     }
 
     if (characters.length === 1) {
-      addCharacter(
+      add(
         "Sam",
         "Best Friend",
         "Friendly, helpful and optimistic",
@@ -185,38 +184,74 @@ function App() {
     return characters.slice(0, 4);
   };
 
-  const getCharacterSummary = (
+  const characterSummary = (
     characters: CharacterProfile[]
-  ) => {
-    return characters
+  ) =>
+    characters
       .map(
-        (character) =>
-          `${character.name} (${character.role}, ${character.appearance})`
+        (c) =>
+          `${c.name} (${c.role}, ${c.appearance})`
       )
       .join("; ");
-  };
 
-  const getScenePhase = (
-    sceneNumber: number,
-    totalScenes: number
+  const getPhase = (
+    scene: number,
+    total: number
   ) => {
-    const progress = sceneNumber / totalScenes;
+    const p = scene / total;
 
-    if (progress <= 0.08) return "Opening";
-    if (progress <= 0.2) return "Setup";
-    if (progress <= 0.4) return "Discovery";
-    if (progress <= 0.65) return "Adventure";
-    if (progress <= 0.82) return "Challenge";
-    if (progress <= 0.95) return "Resolution";
+    if (p <= 0.08) return "Opening";
+    if (p <= 0.2) return "Setup";
+    if (p <= 0.4) return "Discovery";
+    if (p <= 0.65) return "Adventure";
+    if (p <= 0.82) return "Challenge";
+    if (p <= 0.95) return "Resolution";
     return "Ending";
   };
 
-  const generateSceneTitle = (
-    sceneNumber: number,
-    totalScenes: number,
-    storyPrompt: string
+  const getDescription = (
+    scene: number,
+    total: number,
+    story: string,
+    characters: CharacterProfile[]
   ) => {
-    const phase = getScenePhase(sceneNumber, totalScenes);
+    const phase = getPhase(scene, total);
+    const main = characters[0]?.name || "the main character";
+    const friend = characters[1]?.name || "a helpful friend";
+
+    if (phase === "Opening") {
+      return `${main} begins the adventure in a beautiful cartoon world. The environment is introduced with warm cinematic visuals while something unusual begins to happen. Story idea: ${story}.`;
+    }
+
+    if (phase === "Setup") {
+      return `${main} discovers an important clue connected to the story. ${friend} joins the moment and they decide to investigate together.`;
+    }
+
+    if (phase === "Discovery") {
+      return `${main} and ${friend} explore a new location and discover an unexpected secret. Their expressions show curiosity and excitement.`;
+    }
+
+    if (phase === "Adventure") {
+      return `${main} and the other characters continue their journey through a colorful world. They solve problems, explore new places and move closer to their goal.`;
+    }
+
+    if (phase === "Challenge") {
+      return `${main} faces the biggest obstacle of the story. The characters must work together, stay brave and find a creative solution.`;
+    }
+
+    if (phase === "Resolution") {
+      return `${main} and the friends finally understand how to solve the problem. Their teamwork creates a positive change and peace returns.`;
+    }
+
+    return `${main} celebrates the successful adventure with ${friend}. The story ends with a warm emotional moment and a simple lesson.`;
+  };
+
+  const getTitle = (
+    scene: number,
+    total: number,
+    story: string
+  ) => {
+    const phase = getPhase(scene, total);
 
     const titles: Record<string, string[]> = {
       Opening: [
@@ -257,118 +292,66 @@ function App() {
     };
 
     const list = titles[phase];
-    const title = list[(sceneNumber - 1) % list.length];
+    const title = list[(scene - 1) % list.length];
 
-    return `${title} — ${storyPrompt
+    return `${title} — ${story
       .trim()
-      .slice(0, 35)
+      .slice(0, 30)
       .replace(/\s+/g, " ")}`;
   };
 
-  const generateSceneDescription = (
-    sceneNumber: number,
-    totalScenes: number,
-    storyPrompt: string,
-    characters: CharacterProfile[]
+  const getVoiceOver = (
+    scene: number,
+    total: number
   ) => {
-    const phase = getScenePhase(sceneNumber, totalScenes);
-    const mainCharacter =
-      characters[0]?.name || "the main character";
-    const friend =
-      characters[1]?.name || "a helpful friend";
+    const phase = getPhase(scene, total);
 
-    if (phase === "Opening") {
-      return `${mainCharacter} begins the adventure in a beautiful cartoon world. The environment is introduced with warm cinematic visuals while the character notices that something unusual may be about to happen. Story idea: ${storyPrompt}.`;
-    }
+    if (phase === "Opening")
+      return "Every great adventure begins with one small moment. And today, something unexpected was about to happen.";
 
-    if (phase === "Setup") {
-      return `${mainCharacter} discovers the first important clue connected to the story. ${friend} joins the moment and the characters decide to investigate together.`;
-    }
+    if (phase === "Setup")
+      return "Something was different this time. A clue had appeared, and there was only one way to discover where it would lead.";
 
-    if (phase === "Discovery") {
-      return `${mainCharacter} and ${friend} explore a new location and discover an unexpected secret. Their expressions show curiosity and excitement as the adventure becomes more important.`;
-    }
+    if (phase === "Discovery")
+      return "As they moved forward, the world revealed a secret they never expected to find.";
 
-    if (phase === "Adventure") {
-      return `${mainCharacter} and the other characters continue their journey through a colorful world. They solve small problems, explore new places and move closer to the main goal.`;
-    }
+    if (phase === "Adventure")
+      return "The journey continued, and every new step brought them closer to the answer.";
 
-    if (phase === "Challenge") {
-      return `${mainCharacter} faces the biggest obstacle of the story. The characters must work together, stay brave and find a creative way to overcome the challenge.`;
-    }
+    if (phase === "Challenge")
+      return "But then, everything changed. The biggest challenge was finally here, and giving up was not an option.";
 
-    if (phase === "Resolution") {
-      return `${mainCharacter} and the friends finally understand how to solve the problem. Their teamwork leads to a positive change and the world around them becomes peaceful again.`;
-    }
+    if (phase === "Resolution")
+      return "Together, they discovered that courage, friendship and teamwork could solve even the hardest problem.";
 
-    return `${mainCharacter} celebrates the successful adventure with ${friend}. The story ends with a warm emotional moment, a simple lesson and a peaceful cinematic final shot.`;
+    return "And that was the end of their adventure. They would always remember what they had learned that day.";
   };
 
-  const generateVoiceOver = (
-    sceneNumber: number,
-    totalScenes: number,
-    description: string
+  const getMusic = (
+    scene: number,
+    total: number
   ) => {
-    const phase = getScenePhase(sceneNumber, totalScenes);
+    const phase = getPhase(scene, total);
 
-    if (phase === "Opening") {
-      return `Every great adventure begins with one small moment. And today, ${description}`;
-    }
+    if (phase === "Opening")
+      return "Soft magical music, birds, gentle wind and sparkle effects.";
 
-    if (phase === "Setup") {
-      return `Something was different this time. A clue had appeared, and there was only one way to find out where it would lead.`;
-    }
+    if (phase === "Setup")
+      return "Light mysterious music, footsteps, environmental ambience and discovery effects.";
 
-    if (phase === "Discovery") {
-      return `As they moved forward, the world revealed a secret they never expected to find.`;
-    }
+    if (phase === "Discovery")
+      return "Curious adventure music, magical chimes, footsteps and nature ambience.";
 
-    if (phase === "Adventure") {
-      return `The journey continued, and every new step brought them closer to the answer.`;
-    }
+    if (phase === "Adventure")
+      return "Energetic cinematic adventure music, movement sounds and playful effects.";
 
-    if (phase === "Challenge") {
-      return `But then, everything changed. The biggest challenge was finally here, and giving up was not an option.`;
-    }
+    if (phase === "Challenge")
+      return "Dramatic family-friendly music, stronger percussion, wind and suspense effects.";
 
-    if (phase === "Resolution") {
-      return `Together, they discovered that courage, friendship and teamwork could solve even the hardest problem.`;
-    }
-
-    return `And that was the end of their adventure. They would always remember what they had learned that day.`;
-  };
-
-  const generateMusicSfx = (
-    sceneNumber: number,
-    totalScenes: number
-  ) => {
-    const phase = getScenePhase(sceneNumber, totalScenes);
-
-    if (phase === "Opening") {
-      return "Soft magical background music, birds, gentle wind and subtle sparkle sound effects.";
-    }
-
-    if (phase === "Setup") {
-      return "Light mysterious music, soft footsteps, environmental ambience and gentle discovery sound effects.";
-    }
-
-    if (phase === "Discovery") {
-      return "Curious adventure music, magical chimes, footsteps and subtle environmental sounds.";
-    }
-
-    if (phase === "Adventure") {
-      return "Energetic cinematic adventure music, movement sounds, nature ambience and playful effects.";
-    }
-
-    if (phase === "Challenge") {
-      return "Dramatic but family-friendly music, stronger percussion, wind and suspense sound effects.";
-    }
-
-    if (phase === "Resolution") {
+    if (phase === "Resolution")
       return "Warm uplifting music, gentle orchestral sounds and positive magical effects.";
-    }
 
-    return "Peaceful emotional music, soft birds, gentle wind and a warm cinematic ending sound.";
+    return "Peaceful emotional music, soft birds, gentle wind and warm cinematic ending.";
   };
 
   const generateStory = () => {
@@ -380,71 +363,54 @@ function App() {
     setIsGenerating(true);
 
     setTimeout(() => {
-      const totalScenes = getSceneCount();
+      const total = getSceneCount();
       const characters = generateCharacters(prompt);
-      const characterSummary = getCharacterSummary(characters);
-      const scenes: StoryScene[] = [];
-
-      const secondsPerScene = Math.max(
+      const summary = characterSummary(characters);
+      const seconds = Math.max(
         10,
-        Math.round((getMinutes() * 60) / totalScenes)
+        Math.round((getMinutes() * 60) / total)
       );
 
-      for (let i = 1; i <= totalScenes; i++) {
-        const description = generateSceneDescription(
+      const scenes: StoryScene[] = [];
+
+      for (let i = 1; i <= total; i++) {
+        const description = getDescription(
           i,
-          totalScenes,
+          total,
           prompt,
           characters
         );
 
         scenes.push({
           number: i,
-          title: generateSceneTitle(
-            i,
-            totalScenes,
-            prompt
-          ),
+          title: getTitle(i, total, prompt),
           description,
-          duration: secondsPerScene,
-
+          duration: seconds,
           visualPrompt:
             `${style} children's cartoon scene. ${description} ` +
-            `Characters: ${characterSummary}. ` +
-            `Maintain identical character appearance, clothing, colors, proportions and facial design throughout the entire story. ` +
-            `Colorful cinematic environment, expressive faces, detailed background, soft cinematic lighting, appealing composition, family-friendly animation, high quality.`,
+            `Characters: ${summary}. Maintain identical character appearance, clothing, colors, proportions and facial design throughout the entire story. ` +
+            `Cinematic lighting, detailed background, expressive faces, family-friendly animation, high quality.`,
 
           videoPrompt:
-            `Create a ${secondsPerScene}-second ${style} animation. ` +
-            `${description} ` +
-            `Use smooth natural character movement, expressive facial animation, gentle body motion, cinematic camera movement and consistent character design. ` +
-            `Characters must remain visually consistent with previous scenes. ` +
-            `Family-friendly storytelling, polished animation and clear visual action.`,
+            `Create a ${seconds}-second ${style} animation. ${description} ` +
+            `Use smooth character movement, expressive facial animation, cinematic camera movement and consistent character design. ` +
+            `Keep all characters visually identical to previous scenes.`,
 
-          voiceOver: generateVoiceOver(
-            i,
-            totalScenes,
-            description
-          ),
+          voiceOver: getVoiceOver(i, total),
 
-          musicSfx: generateMusicSfx(
-            i,
-            totalScenes
-          ),
+          musicSfx: getMusic(i, total),
         });
       }
 
-      const title =
-        projectType === "Educational Cartoon"
-          ? "The Amazing Cartoon Lesson"
-          : projectType === "Kids Story"
-          ? "The Little Adventure"
-          : projectType === "Short Cartoon"
-          ? "A Tiny Cartoon Adventure"
-          : "The Great Cartoon Adventure";
-
       const newProject: StoryProject = {
-        title,
+        title:
+          projectType === "Educational Cartoon"
+            ? "The Amazing Cartoon Lesson"
+            : projectType === "Kids Story"
+            ? "The Little Adventure"
+            : projectType === "Short Cartoon"
+            ? "A Tiny Cartoon Adventure"
+            : "The Great Cartoon Adventure",
         prompt: prompt.trim(),
         type: projectType,
         duration,
@@ -456,6 +422,7 @@ function App() {
       };
 
       setProject(newProject);
+      setSelectedScene(0);
 
       localStorage.setItem(
         "ai-cartoon-current-project",
@@ -463,7 +430,74 @@ function App() {
       );
 
       setIsGenerating(false);
-    }, 800);
+    }, 700);
+  };
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Copied successfully.");
+    } catch {
+      alert("Copy failed.");
+    }
+  };
+
+  const exportProject = () => {
+    if (!project) return;
+
+    const output: string[] = [
+      project.title,
+      "=".repeat(project.title.length),
+      "",
+      `Type: ${project.type}`,
+      `Duration: ${project.duration}`,
+      `Language: ${project.language}`,
+      `Style: ${project.style}`,
+      "",
+      "STORY IDEA",
+      project.prompt,
+      "",
+      "CHARACTER BIBLE",
+      "",
+    ];
+
+    project.characters.forEach((c) => {
+      output.push(`Name: ${c.name}`);
+      output.push(`Role: ${c.role}`);
+      output.push(`Personality: ${c.personality}`);
+      output.push(`Appearance: ${c.appearance}`);
+      output.push("");
+    });
+
+    output.push("SCENES");
+    output.push("");
+
+    project.scenes.forEach((s) => {
+      output.push(`SCENE ${s.number}: ${s.title}`);
+      output.push(`Duration: ${s.duration}s`);
+      output.push(`Description: ${s.description}`);
+      output.push(`Visual Prompt: ${s.visualPrompt}`);
+      output.push(`Video Prompt: ${s.videoPrompt}`);
+      output.push(`Voice Over: ${s.voiceOver}`);
+      output.push(`Music/SFX: ${s.musicSfx}`);
+      output.push("");
+    });
+
+    const blob = new Blob(
+      [output.join("\n")],
+      { type: "text/plain;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${project.title
+      .replace(/[^a-z0-9]+/gi, "-")
+      .toLowerCase()}.txt`;
+
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const loadProject = () => {
@@ -477,255 +511,23 @@ function App() {
     }
 
     try {
-      const parsed = JSON.parse(saved) as Record<
-        string,
-        unknown
-      >;
+      const parsed = JSON.parse(saved) as StoryProject;
 
-      const rawCharacters = Array.isArray(
-        parsed.characters
-      )
-        ? parsed.characters
-        : [];
-
-      const characters: CharacterProfile[] =
-        rawCharacters.map((item, index) => {
-          if (typeof item === "string") {
-            return {
-              name: item,
-              role:
-                index === 0
-                  ? "Main Character"
-                  : "Supporting Character",
-              personality:
-                "Friendly, expressive and helpful",
-              appearance:
-                "Consistent cartoon character design",
-            };
-          }
-
-          if (
-            item &&
-            typeof item === "object"
-          ) {
-            const value = item as Record<
-              string,
-              unknown
-            >;
-
-            return {
-              name:
-                typeof value.name === "string"
-                  ? value.name
-                  : `Character ${index + 1}`,
-              role:
-                typeof value.role === "string"
-                  ? value.role
-                  : "Supporting Character",
-              personality:
-                typeof value.personality === "string"
-                  ? value.personality
-                  : "Friendly and expressive",
-              appearance:
-                typeof value.appearance === "string"
-                  ? value.appearance
-                  : "Consistent cartoon character design",
-            };
-          }
-
-          return {
-            name: `Character ${index + 1}`,
-            role: "Supporting Character",
-            personality:
-              "Friendly and expressive",
-            appearance:
-              "Consistent cartoon character design",
-          };
-        });
-
-      const rawScenes = Array.isArray(
-        parsed.scenes
-      )
-        ? parsed.scenes
-        : [];
-
-      const scenes: StoryScene[] =
-        rawScenes.map((item, index) => {
-          if (
-            item &&
-            typeof item === "object"
-          ) {
-            const value = item as Record<
-              string,
-              unknown
-            >;
-
-            return {
-              number:
-                typeof value.number === "number"
-                  ? value.number
-                  : index + 1,
-              title:
-                typeof value.title === "string"
-                  ? value.title
-                  : `Scene ${index + 1}`,
-              description:
-                typeof value.description === "string"
-                  ? value.description
-                  : "",
-              duration:
-                typeof value.duration === "number"
-                  ? value.duration
-                  : 10,
-              visualPrompt:
-                typeof value.visualPrompt === "string"
-                  ? value.visualPrompt
-                  : "",
-              videoPrompt:
-                typeof value.videoPrompt === "string"
-                  ? value.videoPrompt
-                  : "",
-              voiceOver:
-                typeof value.voiceOver === "string"
-                  ? value.voiceOver
-                  : "",
-              musicSfx:
-                typeof value.musicSfx === "string"
-                  ? value.musicSfx
-                  : "Background music and suitable cartoon sound effects.",
-            };
-          }
-
-          return {
-            number: index + 1,
-            title: `Scene ${index + 1}`,
-            description: "",
-            duration: 10,
-            visualPrompt: "",
-            videoPrompt: "",
-            voiceOver: "",
-            musicSfx:
-              "Background music and suitable cartoon sound effects.",
-          };
-        });
-
-      const loadedProject: StoryProject = {
-        title:
-          typeof parsed.title === "string"
-            ? parsed.title
-            : "Untitled Cartoon",
-        prompt:
-          typeof parsed.prompt === "string"
-            ? parsed.prompt
-            : "",
-        type:
-          typeof parsed.type === "string"
-            ? parsed.type
-            : "Cartoon Story",
-        duration:
-          typeof parsed.duration === "string"
-            ? parsed.duration
-            : "5 Minutes",
-        language:
-          typeof parsed.language === "string"
-            ? parsed.language
-            : "English",
-        style:
-          typeof parsed.style === "string"
-            ? parsed.style
-            : "3D Cartoon",
-        characters,
-        scenes,
-        createdAt:
-          typeof parsed.createdAt === "string"
-            ? parsed.createdAt
-            : new Date().toISOString(),
-      };
-
-      setProject(loadedProject);
+      setProject(parsed);
+      setSelectedScene(0);
     } catch {
-      alert("Saved project could not be loaded.");
+      alert("Could not load saved project.");
     }
   };
 
-  const copyText = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert("Copied successfully.");
-    } catch {
-      alert("Copy failed. Please copy manually.");
-    }
-  };
-
-  const downloadProject = () => {
-    if (!project) return;
-
-    const lines: string[] = [];
-
-    lines.push(project.title);
-    lines.push("=".repeat(project.title.length));
-    lines.push("");
-    lines.push(`Type: ${project.type}`);
-    lines.push(`Duration: ${project.duration}`);
-    lines.push(`Language: ${project.language}`);
-    lines.push(`Style: ${project.style}`);
-    lines.push("");
-    lines.push("STORY IDEA");
-    lines.push(project.prompt);
-    lines.push("");
-    lines.push("CHARACTER BIBLE");
-    lines.push("");
-
-    project.characters.forEach((character) => {
-      lines.push(`Name: ${character.name}`);
-      lines.push(`Role: ${character.role}`);
-      lines.push(`Personality: ${character.personality}`);
-      lines.push(`Appearance: ${character.appearance}`);
-      lines.push("");
-    });
-
-    lines.push("SCENE PRODUCTION PLAN");
-    lines.push("");
-
-    project.scenes.forEach((scene) => {
-      lines.push(`SCENE ${scene.number}: ${scene.title}`);
-      lines.push(`Duration: ${scene.duration}s`);
-      lines.push(`Description: ${scene.description}`);
-      lines.push(`Visual Prompt: ${scene.visualPrompt}`);
-      lines.push(`Video Prompt: ${scene.videoPrompt}`);
-      lines.push(`Voice Over: ${scene.voiceOver}`);
-      lines.push(`Music / SFX: ${scene.musicSfx}`);
-      lines.push("");
-    });
-
-    const blob = new Blob(
-      [lines.join("\n")],
-      { type: "text/plain;charset=utf-8" }
-    );
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `${project.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()}.txt`;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-  };
-
-  const newProject = () => {
+  const startNewProject = () => {
     setProject(null);
     setPrompt("");
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setSelectedScene(0);
   };
+
+  const currentScene =
+    project?.scenes[selectedScene];
 
   return (
     <div className="app-shell">
@@ -740,12 +542,19 @@ function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item active">
+          <button
+            className={`nav-item ${
+              !project ? "active" : ""
+            }`}
+            onClick={startNewProject}
+          >
             ✨ Story Creator
           </button>
 
           <button
-            className="nav-item"
+            className={`nav-item ${
+              project ? "active" : ""
+            }`}
             onClick={loadProject}
           >
             📂 My Project
@@ -753,9 +562,7 @@ function App() {
         </nav>
 
         <div className="creator-card">
-          <div className="creator-avatar">
-            AI
-          </div>
+          <div className="creator-avatar">AI</div>
 
           <div>
             <strong>AI Creator</strong>
@@ -778,9 +585,7 @@ function App() {
                   AI CREATIVE WORKSPACE
                 </span>
 
-                <h2>
-                  Create Your Cartoon Story
-                </h2>
+                <h2>Create Your Cartoon Story</h2>
 
                 <p>
                   Turn a simple idea into a complete
@@ -817,8 +622,8 @@ function App() {
                 <textarea
                   className="story-input"
                   value={prompt}
-                  onChange={(event) =>
-                    setPrompt(event.target.value)
+                  onChange={(e) =>
+                    setPrompt(e.target.value)
                   }
                   placeholder="Example: A brave little rabbit discovers a magical forest and helps the forest animals..."
                 />
@@ -878,24 +683,14 @@ function App() {
                   Content Type
                   <select
                     value={projectType}
-                    onChange={(event) =>
-                      setProjectType(
-                        event.target.value
-                      )
+                    onChange={(e) =>
+                      setProjectType(e.target.value)
                     }
                   >
-                    <option>
-                      Cartoon Story
-                    </option>
-                    <option>
-                      Kids Story
-                    </option>
-                    <option>
-                      Educational Cartoon
-                    </option>
-                    <option>
-                      Short Cartoon
-                    </option>
+                    <option>Cartoon Story</option>
+                    <option>Kids Story</option>
+                    <option>Educational Cartoon</option>
+                    <option>Short Cartoon</option>
                   </select>
                 </label>
 
@@ -903,10 +698,8 @@ function App() {
                   Duration
                   <select
                     value={duration}
-                    onChange={(event) =>
-                      setDuration(
-                        event.target.value
-                      )
+                    onChange={(e) =>
+                      setDuration(e.target.value)
                     }
                   >
                     <option>1 Minute</option>
@@ -921,10 +714,8 @@ function App() {
                   Language
                   <select
                     value={language}
-                    onChange={(event) =>
-                      setLanguage(
-                        event.target.value
-                      )
+                    onChange={(e) =>
+                      setLanguage(e.target.value)
                     }
                   >
                     <option>English</option>
@@ -937,10 +728,8 @@ function App() {
                   Visual Style
                   <select
                     value={style}
-                    onChange={(event) =>
-                      setStyle(
-                        event.target.value
-                      )
+                    onChange={(e) =>
+                      setStyle(e.target.value)
                     }
                   >
                     <option>3D Cartoon</option>
@@ -973,9 +762,8 @@ function App() {
                   <div>
                     <h3>Production Workflow</h3>
                     <p>
-                      Your generated project will
-                      include everything needed for
-                      production.
+                      Complete production pipeline for
+                      your cartoon.
                     </p>
                   </div>
                 </div>
@@ -985,33 +773,25 @@ function App() {
                 <div className="workflow-card">
                   <span>✍️</span>
                   <strong>Story</strong>
-                  <p>
-                    Complete structured story
-                  </p>
+                  <p>Structured story</p>
                 </div>
 
                 <div className="workflow-card">
                   <span>👥</span>
                   <strong>Characters</strong>
-                  <p>
-                    Consistent character bible
-                  </p>
+                  <p>Character consistency</p>
                 </div>
 
                 <div className="workflow-card">
                   <span>🎨</span>
                   <strong>Visual Prompts</strong>
-                  <p>
-                    Scene-by-scene image prompts
-                  </p>
+                  <p>Image-ready prompts</p>
                 </div>
 
                 <div className="workflow-card">
                   <span>🎥</span>
                   <strong>Video Prompts</strong>
-                  <p>
-                    Animation-ready instructions
-                  </p>
+                  <p>Animation instructions</p>
                 </div>
               </div>
             </section>
@@ -1032,20 +812,20 @@ function App() {
               <div
                 style={{
                   display: "flex",
-                  gap: "10px",
+                  gap: 10,
                   flexWrap: "wrap",
                 }}
               >
                 <button
                   className="load-button"
-                  onClick={downloadProject}
+                  onClick={exportProject}
                 >
                   ⬇ Export Project
                 </button>
 
                 <button
                   className="new-project-button"
-                  onClick={newProject}
+                  onClick={startNewProject}
                 >
                   + New Project
                 </button>
@@ -1084,44 +864,42 @@ function App() {
                   <div>
                     <h3>Character Bible</h3>
                     <p>
-                      Keep these details consistent
-                      across every generated scene.
+                      Character consistency for every
+                      scene.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="characters-grid">
-                {project.characters.map(
-                  (character) => (
-                    <div
-                      className="character-card"
-                      key={character.name}
-                    >
-                      <span>👤</span>
+                {project.characters.map((character) => (
+                  <div
+                    className="character-card"
+                    key={character.name}
+                  >
+                    <span>👤</span>
 
-                      <div>
-                        <strong>
-                          {character.name}
-                        </strong>
+                    <div>
+                      <strong>
+                        {character.name}
+                      </strong>
 
-                        <small>
-                          {character.role}
-                        </small>
+                      <small>
+                        {character.role}
+                      </small>
 
-                        <p>
-                          <b>Personality:</b>{" "}
-                          {character.personality}
-                        </p>
+                      <p>
+                        <b>Personality:</b>{" "}
+                        {character.personality}
+                      </p>
 
-                        <p>
-                          <b>Appearance:</b>{" "}
-                          {character.appearance}
-                        </p>
-                      </div>
+                      <p>
+                        <b>Appearance:</b>{" "}
+                        {character.appearance}
+                      </p>
                     </div>
-                  )
-                )}
+                  </div>
+                ))}
               </div>
             </section>
 
@@ -1133,132 +911,219 @@ function App() {
                   </span>
 
                   <div>
-                    <h3>Scene Production Plan</h3>
+                    <h3>Scene Production</h3>
                     <p>
-                      Every scene includes visual,
-                      video, voice and sound
-                      instructions.
+                      Work through your scenes one by
+                      one.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="scene-list">
-                {project.scenes.map((scene) => (
-                  <article
-                    className="scene-card"
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  overflowX: "auto",
+                  paddingBottom: 14,
+                  marginBottom: 18,
+                }}
+              >
+                {project.scenes.map((scene, index) => (
+                  <button
                     key={scene.number}
+                    onClick={() =>
+                      setSelectedScene(index)
+                    }
+                    style={{
+                      minWidth: 82,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border:
+                        selectedScene === index
+                          ? "2px solid currentColor"
+                          : "1px solid rgba(255,255,255,.12)",
+                      background:
+                        selectedScene === index
+                          ? "rgba(255,255,255,.10)"
+                          : "rgba(255,255,255,.04)",
+                      color: "inherit",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
                   >
-                    <div className="scene-header">
-                      <div>
-                        <span>
-                          SCENE {scene.number}
-                        </span>
-
-                        <h4>{scene.title}</h4>
-                      </div>
-
-                      <strong>
-                        {scene.duration}s
-                      </strong>
-                    </div>
-
-                    <p className="scene-description">
-                      {scene.description}
-                    </p>
-
-                    <div className="production-grid">
-                      <div className="production-box">
-                        <div className="production-heading">
-                          <strong>
-                            🎨 Visual Prompt
-                          </strong>
-
-                          <button
-                            onClick={() =>
-                              copyText(
-                                scene.visualPrompt
-                              )
-                            }
-                          >
-                            Copy
-                          </button>
-                        </div>
-
-                        <p>
-                          {scene.visualPrompt}
-                        </p>
-                      </div>
-
-                      <div className="production-box">
-                        <div className="production-heading">
-                          <strong>
-                            🎥 Video Prompt
-                          </strong>
-
-                          <button
-                            onClick={() =>
-                              copyText(
-                                scene.videoPrompt
-                              )
-                            }
-                          >
-                            Copy
-                          </button>
-                        </div>
-
-                        <p>
-                          {scene.videoPrompt}
-                        </p>
-                      </div>
-
-                      <div className="production-box">
-                        <div className="production-heading">
-                          <strong>
-                            🎙 Voice Over
-                          </strong>
-
-                          <button
-                            onClick={() =>
-                              copyText(
-                                scene.voiceOver
-                              )
-                            }
-                          >
-                            Copy
-                          </button>
-                        </div>
-
-                        <p>
-                          {scene.voiceOver}
-                        </p>
-                      </div>
-
-                      <div className="production-box">
-                        <div className="production-heading">
-                          <strong>
-                            🎵 Music / SFX
-                          </strong>
-
-                          <button
-                            onClick={() =>
-                              copyText(
-                                scene.musicSfx
-                              )
-                            }
-                          >
-                            Copy
-                          </button>
-                        </div>
-
-                        <p>
-                          {scene.musicSfx}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
+                    Scene {scene.number}
+                  </button>
                 ))}
               </div>
+
+              {currentScene && (
+                <article className="scene-card">
+                  <div className="scene-header">
+                    <div>
+                      <span>
+                        SCENE {currentScene.number}
+                      </span>
+
+                      <h4>
+                        {currentScene.title}
+                      </h4>
+                    </div>
+
+                    <strong>
+                      {currentScene.duration}s
+                    </strong>
+                  </div>
+
+                  <p className="scene-description">
+                    {currentScene.description}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      marginBottom: 18,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      className="load-button"
+                      disabled={selectedScene === 0}
+                      onClick={() =>
+                        setSelectedScene(
+                          Math.max(
+                            0,
+                            selectedScene - 1
+                          )
+                        )
+                      }
+                    >
+                      ← Previous Scene
+                    </button>
+
+                    <span
+                      style={{
+                        alignSelf: "center",
+                        fontWeight: 700,
+                        opacity: 0.7,
+                      }}
+                    >
+                      {selectedScene + 1} /{" "}
+                      {project.scenes.length}
+                    </span>
+
+                    <button
+                      className="load-button"
+                      disabled={
+                        selectedScene ===
+                        project.scenes.length - 1
+                      }
+                      onClick={() =>
+                        setSelectedScene(
+                          Math.min(
+                            project.scenes.length - 1,
+                            selectedScene + 1
+                          )
+                        )
+                      }
+                    >
+                      Next Scene →
+                    </button>
+                  </div>
+
+                  <div className="production-grid">
+                    <div className="production-box">
+                      <div className="production-heading">
+                        <strong>
+                          🎨 Visual Prompt
+                        </strong>
+
+                        <button
+                          onClick={() =>
+                            copyText(
+                              currentScene.visualPrompt
+                            )
+                          }
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      <p>
+                        {currentScene.visualPrompt}
+                      </p>
+                    </div>
+
+                    <div className="production-box">
+                      <div className="production-heading">
+                        <strong>
+                          🎥 Video Prompt
+                        </strong>
+
+                        <button
+                          onClick={() =>
+                            copyText(
+                              currentScene.videoPrompt
+                            )
+                          }
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      <p>
+                        {currentScene.videoPrompt}
+                      </p>
+                    </div>
+
+                    <div className="production-box">
+                      <div className="production-heading">
+                        <strong>
+                          🎙 Voice Over
+                        </strong>
+
+                        <button
+                          onClick={() =>
+                            copyText(
+                              currentScene.voiceOver
+                            )
+                          }
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      <p>
+                        {currentScene.voiceOver}
+                      </p>
+                    </div>
+
+                    <div className="production-box">
+                      <div className="production-heading">
+                        <strong>
+                          🎵 Music / SFX
+                        </strong>
+
+                        <button
+                          onClick={() =>
+                            copyText(
+                              currentScene.musicSfx
+                            )
+                          }
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      <p>
+                        {currentScene.musicSfx}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              )}
             </section>
           </>
         )}
