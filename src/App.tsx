@@ -32,24 +32,48 @@ type StoryProject = {
 };
 
 function App() {
-  const [projectType, setProjectType] = useState("Cartoon Story");
-  const [duration, setDuration] = useState("5 Minutes");
-  const [language, setLanguage] = useState("English");
-  const [style, setStyle] = useState("3D Cartoon");
-  const [prompt, setPrompt] = useState("");
-  const [project, setProject] = useState<StoryProject | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedScene, setSelectedScene] = useState(0);
+  const [projectType, setProjectType] =
+    useState("Cartoon Story");
 
-  const getMinutes = () => Number(duration.split(" ")[0]);
+  const [duration, setDuration] =
+    useState("5 Minutes");
+
+  const [language, setLanguage] =
+    useState("English");
+
+  const [style, setStyle] =
+    useState("3D Cartoon");
+
+  const [prompt, setPrompt] = useState("");
+
+  const [project, setProject] =
+    useState<StoryProject | null>(null);
+
+  const [isGenerating, setIsGenerating] =
+    useState(false);
+
+  const [selectedScene, setSelectedScene] =
+    useState(0);
+
+  const [generatedImages, setGeneratedImages] =
+    useState<Record<number, string>>({});
+
+  const [isGeneratingImage, setIsGeneratingImage] =
+    useState(false);
+
+  const getMinutes = () => {
+    return Number(duration.split(" ")[0]);
+  };
 
   const getSceneCount = () => {
     const minutes = getMinutes();
+
     if (minutes === 1) return 6;
     if (minutes === 5) return 30;
     if (minutes === 10) return 60;
     if (minutes === 20) return 120;
     if (minutes === 30) return 180;
+
     return minutes * 6;
   };
 
@@ -57,6 +81,7 @@ function App() {
     storyPrompt: string
   ): CharacterProfile[] => {
     const lower = storyPrompt.toLowerCase();
+
     const characters: CharacterProfile[] = [];
 
     const add = (
@@ -65,7 +90,11 @@ function App() {
       personality: string,
       appearance: string
     ) => {
-      if (!characters.some((c) => c.name === name)) {
+      if (
+        !characters.some(
+          (character) => character.name === name
+        )
+      ) {
         characters.push({
           name,
           role,
@@ -75,7 +104,10 @@ function App() {
       }
     };
 
-    if (lower.includes("rabbit") || lower.includes("bunny")) {
+    if (
+      lower.includes("rabbit") ||
+      lower.includes("bunny")
+    ) {
       add(
         "Bunny",
         "Main Character",
@@ -186,26 +218,28 @@ function App() {
 
   const characterSummary = (
     characters: CharacterProfile[]
-  ) =>
-    characters
+  ) => {
+    return characters
       .map(
-        (c) =>
-          `${c.name} (${c.role}, ${c.appearance})`
+        (character) =>
+          `${character.name} (${character.role}, ${character.appearance})`
       )
       .join("; ");
+  };
 
   const getPhase = (
     scene: number,
     total: number
   ) => {
-    const p = scene / total;
+    const progress = scene / total;
 
-    if (p <= 0.08) return "Opening";
-    if (p <= 0.2) return "Setup";
-    if (p <= 0.4) return "Discovery";
-    if (p <= 0.65) return "Adventure";
-    if (p <= 0.82) return "Challenge";
-    if (p <= 0.95) return "Resolution";
+    if (progress <= 0.08) return "Opening";
+    if (progress <= 0.2) return "Setup";
+    if (progress <= 0.4) return "Discovery";
+    if (progress <= 0.65) return "Adventure";
+    if (progress <= 0.82) return "Challenge";
+    if (progress <= 0.95) return "Resolution";
+
     return "Ending";
   };
 
@@ -216,8 +250,12 @@ function App() {
     characters: CharacterProfile[]
   ) => {
     const phase = getPhase(scene, total);
-    const main = characters[0]?.name || "the main character";
-    const friend = characters[1]?.name || "a helpful friend";
+
+    const main =
+      characters[0]?.name || "the main character";
+
+    const friend =
+      characters[1]?.name || "a helpful friend";
 
     if (phase === "Opening") {
       return `${main} begins the adventure in a beautiful cartoon world. The environment is introduced with warm cinematic visuals while something unusual begins to happen. Story idea: ${story}.`;
@@ -292,12 +330,16 @@ function App() {
     };
 
     const list = titles[phase];
-    const title = list[(scene - 1) % list.length];
 
-    return `${title} — ${story
+    const title =
+      list[(scene - 1) % list.length];
+
+    const cleanStory = story
       .trim()
       .slice(0, 30)
-      .replace(/\s+/g, " ")}`;
+      .replace(/\s+/g, " ");
+
+    return `${title} — ${cleanStory}`;
   };
 
   const getVoiceOver = (
@@ -306,23 +348,29 @@ function App() {
   ) => {
     const phase = getPhase(scene, total);
 
-    if (phase === "Opening")
+    if (phase === "Opening") {
       return "Every great adventure begins with one small moment. And today, something unexpected was about to happen.";
+    }
 
-    if (phase === "Setup")
+    if (phase === "Setup") {
       return "Something was different this time. A clue had appeared, and there was only one way to discover where it would lead.";
+    }
 
-    if (phase === "Discovery")
+    if (phase === "Discovery") {
       return "As they moved forward, the world revealed a secret they never expected to find.";
+    }
 
-    if (phase === "Adventure")
+    if (phase === "Adventure") {
       return "The journey continued, and every new step brought them closer to the answer.";
+    }
 
-    if (phase === "Challenge")
+    if (phase === "Challenge") {
       return "But then, everything changed. The biggest challenge was finally here, and giving up was not an option.";
+    }
 
-    if (phase === "Resolution")
+    if (phase === "Resolution") {
       return "Together, they discovered that courage, friendship and teamwork could solve even the hardest problem.";
+    }
 
     return "And that was the end of their adventure. They would always remember what they had learned that day.";
   };
@@ -333,23 +381,29 @@ function App() {
   ) => {
     const phase = getPhase(scene, total);
 
-    if (phase === "Opening")
+    if (phase === "Opening") {
       return "Soft magical music, birds, gentle wind and sparkle effects.";
+    }
 
-    if (phase === "Setup")
+    if (phase === "Setup") {
       return "Light mysterious music, footsteps, environmental ambience and discovery effects.";
+    }
 
-    if (phase === "Discovery")
+    if (phase === "Discovery") {
       return "Curious adventure music, magical chimes, footsteps and nature ambience.";
+    }
 
-    if (phase === "Adventure")
+    if (phase === "Adventure") {
       return "Energetic cinematic adventure music, movement sounds and playful effects.";
+    }
 
-    if (phase === "Challenge")
+    if (phase === "Challenge") {
       return "Dramatic family-friendly music, stronger percussion, wind and suspense effects.";
+    }
 
-    if (phase === "Resolution")
+    if (phase === "Resolution") {
       return "Warm uplifting music, gentle orchestral sounds and positive magical effects.";
+    }
 
     return "Peaceful emotional music, soft birds, gentle wind and warm cinematic ending.";
   };
@@ -364,28 +418,44 @@ function App() {
 
     setTimeout(() => {
       const total = getSceneCount();
-      const characters = generateCharacters(prompt);
-      const summary = characterSummary(characters);
+
+      const characters =
+        generateCharacters(prompt);
+
+      const summary =
+        characterSummary(characters);
+
       const seconds = Math.max(
         10,
-        Math.round((getMinutes() * 60) / total)
+        Math.round(
+          (getMinutes() * 60) / total
+        )
       );
 
       const scenes: StoryScene[] = [];
 
       for (let i = 1; i <= total; i++) {
-        const description = getDescription(
-          i,
-          total,
-          prompt,
-          characters
-        );
+        const description =
+          getDescription(
+            i,
+            total,
+            prompt,
+            characters
+          );
 
         scenes.push({
           number: i,
-          title: getTitle(i, total, prompt),
+
+          title: getTitle(
+            i,
+            total,
+            prompt
+          ),
+
           description,
+
           duration: seconds,
+
           visualPrompt:
             `${style} children's cartoon scene. ${description} ` +
             `Characters: ${summary}. Maintain identical character appearance, clothing, colors, proportions and facial design throughout the entire story. ` +
@@ -396,9 +466,11 @@ function App() {
             `Use smooth character movement, expressive facial animation, cinematic camera movement and consistent character design. ` +
             `Keep all characters visually identical to previous scenes.`,
 
-          voiceOver: getVoiceOver(i, total),
+          voiceOver:
+            getVoiceOver(i, total),
 
-          musicSfx: getMusic(i, total),
+          musicSfx:
+            getMusic(i, total),
         });
       }
 
@@ -411,18 +483,30 @@ function App() {
             : projectType === "Short Cartoon"
             ? "A Tiny Cartoon Adventure"
             : "The Great Cartoon Adventure",
+
         prompt: prompt.trim(),
+
         type: projectType,
+
         duration,
+
         language,
+
         style,
+
         characters,
+
         scenes,
-        createdAt: new Date().toISOString(),
+
+        createdAt:
+          new Date().toISOString(),
       };
 
       setProject(newProject);
+
       setSelectedScene(0);
+
+      setGeneratedImages({});
 
       localStorage.setItem(
         "ai-cartoon-current-project",
@@ -433,9 +517,88 @@ function App() {
     }, 700);
   };
 
-  const copyText = async (text: string) => {
+  /*
+   * AI IMAGE GENERATION
+   *
+   * Backend:
+   * http://localhost:3001/api/generate-image
+   *
+   * Backend returns raw image bytes,
+   * therefore we use response.blob().
+   */
+  const generateSceneImage = async () => {
+    if (!currentScene || !project) {
+      return;
+    }
+
+    setIsGeneratingImage(true);
+
     try {
-      await navigator.clipboard.writeText(text);
+      const response = await fetch(
+        "http://localhost:3001/api/generate-image",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            prompt: currentScene.visualPrompt,
+
+            style: project.style,
+
+            sceneNumber:
+              currentScene.number,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data =
+          await response.json().catch(
+            () => null
+          );
+
+        throw new Error(
+          data?.error ||
+            "Image generation failed."
+        );
+      }
+
+      const blob =
+        await response.blob();
+
+      const imageUrl =
+        URL.createObjectURL(blob);
+
+      setGeneratedImages(
+        (previous) => ({
+          ...previous,
+
+          [currentScene.number]:
+            imageUrl,
+        })
+      );
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Image generation failed."
+      );
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const copyText = async (
+    text: string
+  ) => {
+    try {
+      await navigator.clipboard.writeText(
+        text
+      );
+
       alert("Copied successfully.");
     } catch {
       alert("Copy failed.");
@@ -447,97 +610,189 @@ function App() {
 
     const output: string[] = [
       project.title,
-      "=".repeat(project.title.length),
+
+      "=".repeat(
+        project.title.length
+      ),
+
       "",
+
       `Type: ${project.type}`,
+
       `Duration: ${project.duration}`,
+
       `Language: ${project.language}`,
+
       `Style: ${project.style}`,
+
       "",
+
       "STORY IDEA",
+
       project.prompt,
+
       "",
+
       "CHARACTER BIBLE",
+
       "",
     ];
 
-    project.characters.forEach((c) => {
-      output.push(`Name: ${c.name}`);
-      output.push(`Role: ${c.role}`);
-      output.push(`Personality: ${c.personality}`);
-      output.push(`Appearance: ${c.appearance}`);
-      output.push("");
-    });
+    project.characters.forEach(
+      (character) => {
+        output.push(
+          `Name: ${character.name}`
+        );
+
+        output.push(
+          `Role: ${character.role}`
+        );
+
+        output.push(
+          `Personality: ${character.personality}`
+        );
+
+        output.push(
+          `Appearance: ${character.appearance}`
+        );
+
+        output.push("");
+      }
+    );
 
     output.push("SCENES");
+
     output.push("");
 
-    project.scenes.forEach((s) => {
-      output.push(`SCENE ${s.number}: ${s.title}`);
-      output.push(`Duration: ${s.duration}s`);
-      output.push(`Description: ${s.description}`);
-      output.push(`Visual Prompt: ${s.visualPrompt}`);
-      output.push(`Video Prompt: ${s.videoPrompt}`);
-      output.push(`Voice Over: ${s.voiceOver}`);
-      output.push(`Music/SFX: ${s.musicSfx}`);
-      output.push("");
-    });
+    project.scenes.forEach(
+      (scene) => {
+        output.push(
+          `SCENE ${scene.number}: ${scene.title}`
+        );
+
+        output.push(
+          `Duration: ${scene.duration}s`
+        );
+
+        output.push(
+          `Description: ${scene.description}`
+        );
+
+        output.push(
+          `Visual Prompt: ${scene.visualPrompt}`
+        );
+
+        output.push(
+          `Video Prompt: ${scene.videoPrompt}`
+        );
+
+        output.push(
+          `Voice Over: ${scene.voiceOver}`
+        );
+
+        output.push(
+          `Music/SFX: ${scene.musicSfx}`
+        );
+
+        output.push("");
+      }
+    );
 
     const blob = new Blob(
       [output.join("\n")],
-      { type: "text/plain;charset=utf-8" }
+      {
+        type: "text/plain;charset=utf-8",
+      }
     );
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
 
     link.href = url;
-    link.download = `${project.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()}.txt`;
+
+    link.download =
+      `${project.title
+        .replace(
+          /[^a-z0-9]+/gi,
+          "-"
+        )
+        .toLowerCase()}.txt`;
+
+    document.body.appendChild(link);
 
     link.click();
+
+    link.remove();
+
     URL.revokeObjectURL(url);
   };
 
   const loadProject = () => {
-    const saved = localStorage.getItem(
-      "ai-cartoon-current-project"
-    );
+    const saved =
+      localStorage.getItem(
+        "ai-cartoon-current-project"
+      );
 
     if (!saved) {
-      alert("No saved project found.");
+      alert(
+        "No saved project found."
+      );
+
       return;
     }
 
     try {
-      const parsed = JSON.parse(saved) as StoryProject;
+      const parsed =
+        JSON.parse(
+          saved
+        ) as StoryProject;
 
       setProject(parsed);
+
       setSelectedScene(0);
+
+      setGeneratedImages({});
     } catch {
-      alert("Could not load saved project.");
+      alert(
+        "Could not load saved project."
+      );
     }
   };
 
   const startNewProject = () => {
     setProject(null);
+
     setPrompt("");
+
     setSelectedScene(0);
+
+    setGeneratedImages({});
   };
 
   const currentScene =
-    project?.scenes[selectedScene];
+    project?.scenes[
+      selectedScene
+    ];
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">🎬</div>
+          <div className="brand-icon">
+            🎬
+          </div>
 
           <div>
-            <h1>AI Cartoon Studio</h1>
-            <span>Creative Production Suite</span>
+            <h1>
+              AI Cartoon Studio
+            </h1>
+
+            <span>
+              Creative Production Suite
+            </span>
           </div>
         </div>
 
@@ -562,17 +817,29 @@ function App() {
         </nav>
 
         <div className="creator-card">
-          <div className="creator-avatar">AI</div>
+          <div className="creator-avatar">
+            AI
+          </div>
 
           <div>
-            <strong>AI Creator</strong>
-            <span>Studio Workspace</span>
+            <strong>
+              AI Creator
+            </strong>
+
+            <span>
+              Studio Workspace
+            </span>
           </div>
         </div>
 
         <div className="sidebar-footer">
-          <span>AI Cartoon Studio</span>
-          <small>Production Workspace</small>
+          <span>
+            AI Cartoon Studio
+          </span>
+
+          <small>
+            Production Workspace
+          </small>
         </div>
       </aside>
 
@@ -585,11 +852,14 @@ function App() {
                   AI CREATIVE WORKSPACE
                 </span>
 
-                <h2>Create Your Cartoon Story</h2>
+                <h2>
+                  Create Your Cartoon Story
+                </h2>
 
                 <p>
-                  Turn a simple idea into a complete
-                  cartoon production plan.
+                  Turn a simple idea into a
+                  complete cartoon production
+                  plan.
                 </p>
               </div>
 
@@ -610,10 +880,13 @@ function App() {
                     </span>
 
                     <div>
-                      <h3>Story Idea</h3>
+                      <h3>
+                        Story Idea
+                      </h3>
+
                       <p>
-                        Describe the cartoon you want
-                        to create.
+                        Describe the cartoon
+                        you want to create.
                       </p>
                     </div>
                   </div>
@@ -622,14 +895,18 @@ function App() {
                 <textarea
                   className="story-input"
                   value={prompt}
-                  onChange={(e) =>
-                    setPrompt(e.target.value)
+                  onChange={(event) =>
+                    setPrompt(
+                      event.target.value
+                    )
                   }
                   placeholder="Example: A brave little rabbit discovers a magical forest and helps the forest animals..."
                 />
 
                 <div className="quick-prompts">
-                  <span>Quick ideas:</span>
+                  <span>
+                    Quick ideas:
+                  </span>
 
                   <button
                     onClick={() =>
@@ -671,9 +948,13 @@ function App() {
                     </span>
 
                     <div>
-                      <h3>Production Settings</h3>
+                      <h3>
+                        Production Settings
+                      </h3>
+
                       <p>
-                        Configure your cartoon project.
+                        Configure your cartoon
+                        project.
                       </p>
                     </div>
                   </div>
@@ -681,62 +962,121 @@ function App() {
 
                 <label>
                   Content Type
+
                   <select
                     value={projectType}
-                    onChange={(e) =>
-                      setProjectType(e.target.value)
+                    onChange={(event) =>
+                      setProjectType(
+                        event.target.value
+                      )
                     }
                   >
-                    <option>Cartoon Story</option>
-                    <option>Kids Story</option>
-                    <option>Educational Cartoon</option>
-                    <option>Short Cartoon</option>
+                    <option>
+                      Cartoon Story
+                    </option>
+
+                    <option>
+                      Kids Story
+                    </option>
+
+                    <option>
+                      Educational Cartoon
+                    </option>
+
+                    <option>
+                      Short Cartoon
+                    </option>
                   </select>
                 </label>
 
                 <label>
                   Duration
+
                   <select
                     value={duration}
-                    onChange={(e) =>
-                      setDuration(e.target.value)
+                    onChange={(event) =>
+                      setDuration(
+                        event.target.value
+                      )
                     }
                   >
-                    <option>1 Minute</option>
-                    <option>5 Minutes</option>
-                    <option>10 Minutes</option>
-                    <option>20 Minutes</option>
-                    <option>30 Minutes</option>
+                    <option>
+                      1 Minute
+                    </option>
+
+                    <option>
+                      5 Minutes
+                    </option>
+
+                    <option>
+                      10 Minutes
+                    </option>
+
+                    <option>
+                      20 Minutes
+                    </option>
+
+                    <option>
+                      30 Minutes
+                    </option>
                   </select>
                 </label>
 
                 <label>
                   Language
+
                   <select
                     value={language}
-                    onChange={(e) =>
-                      setLanguage(e.target.value)
+                    onChange={(event) =>
+                      setLanguage(
+                        event.target.value
+                      )
                     }
                   >
-                    <option>English</option>
-                    <option>Urdu</option>
-                    <option>Hindi</option>
+                    <option>
+                      English
+                    </option>
+
+                    <option>
+                      Urdu
+                    </option>
+
+                    <option>
+                      Hindi
+                    </option>
                   </select>
                 </label>
 
                 <label>
                   Visual Style
+
                   <select
                     value={style}
-                    onChange={(e) =>
-                      setStyle(e.target.value)
+                    onChange={(event) =>
+                      setStyle(
+                        event.target.value
+                      )
                     }
                   >
-                    <option>3D Cartoon</option>
-                    <option>2D Cartoon</option>
-                    <option>Anime</option>
-                    <option>Storybook</option>
-                    <option>Pixar Inspired</option>
+                    <option>
+                      3D Cartoon
+                    </option>
+
+                    <option>
+                      2D Cartoon
+                    </option>
+
+                    <option>
+                      Anime
+                    </option>
+
+                    <option>
+                      Storybook
+                    </option>
+
+                    <option>
+                      Pixar Inspired
+                    </option>
                   </select>
                 </label>
 
@@ -760,10 +1100,13 @@ function App() {
                   </span>
 
                   <div>
-                    <h3>Production Workflow</h3>
+                    <h3>
+                      Production Workflow
+                    </h3>
+
                     <p>
-                      Complete production pipeline for
-                      your cartoon.
+                      Complete production pipeline
+                      for your cartoon.
                     </p>
                   </div>
                 </div>
@@ -772,26 +1115,50 @@ function App() {
               <div className="workflow-grid">
                 <div className="workflow-card">
                   <span>✍️</span>
-                  <strong>Story</strong>
-                  <p>Structured story</p>
+
+                  <strong>
+                    Story
+                  </strong>
+
+                  <p>
+                    Structured story
+                  </p>
                 </div>
 
                 <div className="workflow-card">
                   <span>👥</span>
-                  <strong>Characters</strong>
-                  <p>Character consistency</p>
+
+                  <strong>
+                    Characters
+                  </strong>
+
+                  <p>
+                    Character consistency
+                  </p>
                 </div>
 
                 <div className="workflow-card">
                   <span>🎨</span>
-                  <strong>Visual Prompts</strong>
-                  <p>Image-ready prompts</p>
+
+                  <strong>
+                    Visual Prompts
+                  </strong>
+
+                  <p>
+                    Image-ready prompts
+                  </p>
                 </div>
 
                 <div className="workflow-card">
                   <span>🎥</span>
-                  <strong>Video Prompts</strong>
-                  <p>Animation instructions</p>
+
+                  <strong>
+                    Video Prompts
+                  </strong>
+
+                  <p>
+                    Animation instructions
+                  </p>
                 </div>
               </div>
             </section>
@@ -804,9 +1171,13 @@ function App() {
                   PROJECT READY
                 </span>
 
-                <h2>{project.title}</h2>
+                <h2>
+                  {project.title}
+                </h2>
 
-                <p>{project.prompt}</p>
+                <p>
+                  {project.prompt}
+                </p>
               </div>
 
               <div
@@ -834,23 +1205,43 @@ function App() {
 
             <section className="project-stats">
               <div>
-                <span>CONTENT TYPE</span>
-                <strong>{project.type}</strong>
+                <span>
+                  CONTENT TYPE
+                </span>
+
+                <strong>
+                  {project.type}
+                </strong>
               </div>
 
               <div>
-                <span>DURATION</span>
-                <strong>{project.duration}</strong>
+                <span>
+                  DURATION
+                </span>
+
+                <strong>
+                  {project.duration}
+                </strong>
               </div>
 
               <div>
-                <span>LANGUAGE</span>
-                <strong>{project.language}</strong>
+                <span>
+                  LANGUAGE
+                </span>
+
+                <strong>
+                  {project.language}
+                </strong>
               </div>
 
               <div>
-                <span>SCENES</span>
-                <strong>{project.scenes.length}</strong>
+                <span>
+                  SCENES
+                </span>
+
+                <strong>
+                  {project.scenes.length}
+                </strong>
               </div>
             </section>
 
@@ -862,44 +1253,55 @@ function App() {
                   </span>
 
                   <div>
-                    <h3>Character Bible</h3>
+                    <h3>
+                      Character Bible
+                    </h3>
+
                     <p>
-                      Character consistency for every
-                      scene.
+                      Character consistency for
+                      every scene.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="characters-grid">
-                {project.characters.map((character) => (
-                  <div
-                    className="character-card"
-                    key={character.name}
-                  >
-                    <span>👤</span>
+                {project.characters.map(
+                  (character) => (
+                    <div
+                      className="character-card"
+                      key={character.name}
+                    >
+                      <span>
+                        👤
+                      </span>
 
-                    <div>
-                      <strong>
-                        {character.name}
-                      </strong>
+                      <div>
+                        <strong>
+                          {character.name}
+                        </strong>
 
-                      <small>
-                        {character.role}
-                      </small>
+                        <small>
+                          {character.role}
+                        </small>
 
-                      <p>
-                        <b>Personality:</b>{" "}
-                        {character.personality}
-                      </p>
+                        <p>
+                          <b>
+                            Personality:
+                          </b>{" "}
+                          {character.personality}
+                        </p>
 
-                      <p>
-                        <b>Appearance:</b>{" "}
-                        {character.appearance}
-                      </p>
+                        <p>
+                          <b>
+                            Appearance:
+                          </b>{" "}
+                          {character.appearance}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
             </section>
 
@@ -911,10 +1313,13 @@ function App() {
                   </span>
 
                   <div>
-                    <h3>Scene Production</h3>
+                    <h3>
+                      Scene Production
+                    </h3>
+
                     <p>
-                      Work through your scenes one by
-                      one.
+                      Work through your scenes
+                      one by one.
                     </p>
                   </div>
                 </div>
@@ -929,32 +1334,41 @@ function App() {
                   marginBottom: 18,
                 }}
               >
-                {project.scenes.map((scene, index) => (
-                  <button
-                    key={scene.number}
-                    onClick={() =>
-                      setSelectedScene(index)
-                    }
-                    style={{
-                      minWidth: 82,
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border:
-                        selectedScene === index
-                          ? "2px solid currentColor"
-                          : "1px solid rgba(255,255,255,.12)",
-                      background:
-                        selectedScene === index
-                          ? "rgba(255,255,255,.10)"
-                          : "rgba(255,255,255,.04)",
-                      color: "inherit",
-                      cursor: "pointer",
-                      fontWeight: 700,
-                    }}
-                  >
-                    Scene {scene.number}
-                  </button>
-                ))}
+                {project.scenes.map(
+                  (scene, index) => (
+                    <button
+                      key={scene.number}
+                      onClick={() =>
+                        setSelectedScene(
+                          index
+                        )
+                      }
+                      style={{
+                        minWidth: 82,
+                        padding:
+                          "10px 12px",
+                        borderRadius: 10,
+                        border:
+                          selectedScene ===
+                          index
+                            ? "2px solid currentColor"
+                            : "1px solid rgba(255,255,255,.12)",
+                        background:
+                          selectedScene ===
+                          index
+                            ? "rgba(255,255,255,.10)"
+                            : "rgba(255,255,255,.04)",
+                        color: "inherit",
+                        cursor:
+                          "pointer",
+                        fontWeight: 700,
+                      }}
+                    >
+                      Scene{" "}
+                      {scene.number}
+                    </button>
+                  )
+                )}
               </div>
 
               {currentScene && (
@@ -962,7 +1376,8 @@ function App() {
                   <div className="scene-header">
                     <div>
                       <span>
-                        SCENE {currentScene.number}
+                        SCENE{" "}
+                        {currentScene.number}
                       </span>
 
                       <h4>
@@ -982,7 +1397,8 @@ function App() {
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "space-between",
+                      justifyContent:
+                        "space-between",
                       gap: 10,
                       marginBottom: 18,
                       flexWrap: "wrap",
@@ -990,12 +1406,15 @@ function App() {
                   >
                     <button
                       className="load-button"
-                      disabled={selectedScene === 0}
+                      disabled={
+                        selectedScene === 0
+                      }
                       onClick={() =>
                         setSelectedScene(
                           Math.max(
                             0,
-                            selectedScene - 1
+                            selectedScene -
+                              1
                           )
                         )
                       }
@@ -1005,7 +1424,8 @@ function App() {
 
                     <span
                       style={{
-                        alignSelf: "center",
+                        alignSelf:
+                          "center",
                         fontWeight: 700,
                         opacity: 0.7,
                       }}
@@ -1018,19 +1438,183 @@ function App() {
                       className="load-button"
                       disabled={
                         selectedScene ===
-                        project.scenes.length - 1
+                        project.scenes
+                          .length -
+                          1
                       }
                       onClick={() =>
                         setSelectedScene(
                           Math.min(
-                            project.scenes.length - 1,
-                            selectedScene + 1
+                            project.scenes
+                              .length -
+                              1,
+                            selectedScene +
+                              1
                           )
                         )
                       }
                     >
                       Next Scene →
                     </button>
+                  </div>
+
+                  <div
+                    style={{
+                      marginBottom: 22,
+                      padding: 18,
+                      borderRadius: 16,
+                      border:
+                        "1px solid rgba(255,255,255,.10)",
+                      background:
+                        "rgba(255,255,255,.035)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        alignItems:
+                          "center",
+                        gap: 12,
+                        flexWrap:
+                          "wrap",
+                        marginBottom: 14,
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{
+                            fontSize: 17,
+                          }}
+                        >
+                          🖼️ AI Scene Image
+                        </strong>
+
+                        <p
+                          style={{
+                            margin:
+                              "5px 0 0",
+                            opacity:
+                              0.65,
+                          }}
+                        >
+                          Generate a visual
+                          from this
+                          scene's Visual
+                          Prompt.
+                        </p>
+                      </div>
+
+                      <button
+                        className="load-button"
+                        onClick={
+                          generateSceneImage
+                        }
+                        disabled={
+                          isGeneratingImage
+                        }
+                      >
+                        {isGeneratingImage
+                          ? "⏳ Generating Image..."
+                          : generatedImages[
+                              currentScene
+                                .number
+                            ]
+                          ? "🔄 Regenerate Image"
+                          : "🎨 Generate AI Image"}
+                      </button>
+                    </div>
+
+                    {generatedImages[
+                      currentScene.number
+                    ] ? (
+                      <div
+                        style={{
+                          overflow:
+                            "hidden",
+                          borderRadius:
+                            14,
+                          border:
+                            "1px solid rgba(255,255,255,.10)",
+                          background:
+                            "#111",
+                        }}
+                      >
+                        <img
+                          src={
+                            generatedImages[
+                              currentScene
+                                .number
+                            ]
+                          }
+                          alt={`Generated image for Scene ${currentScene.number}`}
+                          style={{
+                            display:
+                              "block",
+                            width:
+                              "100%",
+                            maxHeight:
+                              620,
+                            objectFit:
+                              "cover",
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          minHeight:
+                            220,
+                          display:
+                            "grid",
+                          placeItems:
+                            "center",
+                          textAlign:
+                            "center",
+                          borderRadius:
+                            14,
+                          border:
+                            "1px dashed rgba(255,255,255,.14)",
+                          background:
+                            "rgba(0,0,0,.12)",
+                          padding: 24,
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize:
+                                42,
+                              marginBottom:
+                                10,
+                            }}
+                          >
+                            🎨
+                          </div>
+
+                          <strong>
+                            No scene image
+                            generated yet
+                          </strong>
+
+                          <p
+                            style={{
+                              opacity:
+                                0.6,
+                              marginBottom:
+                                0,
+                            }}
+                          >
+                            Click
+                            “Generate AI
+                            Image” to
+                            create this
+                            scene visual.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="production-grid">
@@ -1052,7 +1636,9 @@ function App() {
                       </div>
 
                       <p>
-                        {currentScene.visualPrompt}
+                        {
+                          currentScene.visualPrompt
+                        }
                       </p>
                     </div>
 
@@ -1074,7 +1660,9 @@ function App() {
                       </div>
 
                       <p>
-                        {currentScene.videoPrompt}
+                        {
+                          currentScene.videoPrompt
+                        }
                       </p>
                     </div>
 
@@ -1096,7 +1684,9 @@ function App() {
                       </div>
 
                       <p>
-                        {currentScene.voiceOver}
+                        {
+                          currentScene.voiceOver
+                        }
                       </p>
                     </div>
 
@@ -1118,7 +1708,9 @@ function App() {
                       </div>
 
                       <p>
-                        {currentScene.musicSfx}
+                        {
+                          currentScene.musicSfx
+                        }
                       </p>
                     </div>
                   </div>
