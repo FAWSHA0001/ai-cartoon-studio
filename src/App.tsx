@@ -67,6 +67,12 @@ function App() {
   const [isGeneratingVideo, setIsGeneratingVideo] =
     useState(false);
 
+  const [finalVideo, setFinalVideo] =
+    useState<string | null>(null);
+
+  const [isMergingVideos, setIsMergingVideos] =
+    useState(false);
+
   const getMinutes = () => {
     return Number(duration.split(" ")[0]);
   };
@@ -306,37 +312,31 @@ function App() {
         "The Story Begins",
         "A Curious Morning",
       ],
-
       Setup: [
         "The First Clue",
         "Something Strange",
         "A New Discovery",
       ],
-
       Discovery: [
         "The Secret Path",
         "Into the Unknown",
         "The Hidden Place",
       ],
-
       Adventure: [
         "The Big Adventure",
         "Across the Forest",
         "A Surprising Journey",
       ],
-
       Challenge: [
         "The Biggest Challenge",
         "Trouble Appears",
         "A Difficult Choice",
       ],
-
       Resolution: [
         "Finding the Answer",
         "Everything Changes",
         "The Solution",
       ],
-
       Ending: [
         "A Happy Ending",
         "A Lesson to Remember",
@@ -525,6 +525,8 @@ function App() {
 
       setGeneratedVideos({});
 
+      setFinalVideo(null);
+
       localStorage.setItem(
         "ai-cartoon-current-project",
         JSON.stringify(newProject)
@@ -536,9 +538,6 @@ function App() {
 
   /*
    * AI IMAGE GENERATION
-   *
-   * Backend:
-   * http://localhost:3001/api/generate-image
    */
   const generateSceneImage = async () => {
     if (!currentScene || !project) {
@@ -558,7 +557,8 @@ function App() {
           },
 
           body: JSON.stringify({
-            prompt: currentScene.visualPrompt,
+            prompt:
+              currentScene.visualPrompt,
 
             style: project.style,
 
@@ -606,23 +606,11 @@ function App() {
   };
 
   /*
-   * FREE LOCAL VIDEO GENERATION
+   * FREE LOCAL SCENE VIDEO
    *
-   * Flow:
-   *
-   * Generated Scene Image
-   *        ↓
-   * Browser Blob
-   *        ↓
-   * Base64 Image
-   *        ↓
-   * Local Node Server
-   *        ↓
-   * FFmpeg
-   *        ↓
-   * MP4
-   *
-   * This does NOT use paid Veo.
+   * Uses the already generated scene image.
+   * The backend converts the image into
+   * an MP4 animation using local FFmpeg.
    */
   const generateSceneVideo = async () => {
     if (!currentScene || !project) {
@@ -630,7 +618,9 @@ function App() {
     }
 
     const imageUrl =
-      generatedImages[currentScene.number];
+      generatedImages[
+        currentScene.number
+      ];
 
     if (!imageUrl) {
       alert(
@@ -643,11 +633,6 @@ function App() {
     setIsGeneratingVideo(true);
 
     try {
-      /*
-       * Convert the generated image object URL
-       * into a base64 data URL so the local
-       * backend can process the exact same image.
-       */
       const imageResponse =
         await fetch(imageUrl);
 
@@ -733,7 +718,7 @@ function App() {
 
         throw new Error(
           data?.error ||
-            "Free video generation failed."
+            "Free scene video generation failed."
         );
       }
 
@@ -744,35 +729,215 @@ function App() {
         URL.createObjectURL(blob);
 
       setGeneratedVideos(
-        (previous) => {
-          const oldVideo =
-            previous[
-              currentScene.number
-            ];
+        (previous) => ({
+          ...previous,
 
-          if (oldVideo) {
-            URL.revokeObjectURL(
-              oldVideo
-            );
-          }
-
-          return {
-            ...previous,
-
-            [currentScene.number]:
-              videoUrl,
-          };
-        }
+          [currentScene.number]:
+            videoUrl,
+        })
       );
+
+      setFinalVideo(null);
     } catch (error) {
       alert(
         error instanceof Error
           ? error.message
-          : "Free video generation failed."
+          : "Free scene video generation failed."
       );
     } finally {
       setIsGeneratingVideo(false);
     }
+  };
+
+  /*
+   * Convert a browser object URL into
+   * a base64 data URL for the merge API.
+   */
+  const objectUrlToDataUrl = async (
+    objectUrl: string
+  ): Promise<string> => {
+    const response =
+      await fetch(objectUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        "Could not read scene video."
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    return new Promise<string>(
+      (resolve, reject) => {
+        const reader =
+          new FileReader();
+
+        reader.onloadend = () => {
+          if (
+            typeof reader.result ===
+            "string"
+          ) {
+            resolve(reader.result);
+          } else {
+            reject(
+              new Error(
+                "Could not convert video to base64."
+              )
+            );
+          }
+        };
+
+        reader.onerror = () => {
+          reject(
+            new Error(
+              "Could not read video data."
+            )
+          );
+        };
+
+        reader.readAsDataURL(blob);
+      }
+    );
+  };
+
+  /*
+   * MERGE ALL GENERATED SCENE VIDEOS
+   *
+   * Sends every generated scene MP4
+   * to the local backend.
+   */
+  const mergeAllSceneVideos = async () => {
+    if (!project) {
+      return;
+    }
+
+    setIsMergingVideos(true);
+
+    try {
+      const missingScenes =
+        project.scenes.filter(
+          (scene) =>
+            !generatedVideos[
+              scene.number
+            ]
+        );
+
+      if (missingScenes.length > 0) {
+        const firstMissing =
+          missingScenes[0];
+
+        alert(
+          `Please generate video for every scene first. Missing Scene ${firstMissing.number}.`
+        );
+
+        setSelectedScene(
+          firstMissing.number - 1
+        );
+
+        return;
+      }
+
+      const orderedVideos: string[] = [];
+
+      for (
+        const scene of project.scenes
+      ) {
+        const videoUrl =
+          generatedVideos[
+            scene.number
+          ];
+
+        if (!videoUrl) {
+          throw new Error(
+            `Scene ${scene.number} video is missing.`
+          );
+        }
+
+        const dataUrl =
+          await objectUrlToDataUrl(
+            videoUrl
+          );
+
+        orderedVideos.push(dataUrl);
+      }
+
+      const response = await fetch(
+        "http://localhost:3001/api/merge-videos",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            videos: orderedVideos,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data =
+          await response.json().catch(
+            () => null
+          );
+
+        throw new Error(
+          data?.error ||
+            "Could not merge scene videos."
+        );
+      }
+
+      const blob =
+        await response.blob();
+
+      const finalUrl =
+        URL.createObjectURL(blob);
+
+      setFinalVideo(finalUrl);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not merge scene videos."
+      );
+    } finally {
+      setIsMergingVideos(false);
+    }
+  };
+
+  const downloadFinalVideo = () => {
+    if (!finalVideo || !project) {
+      return;
+    }
+
+    const safeName =
+      project.title
+        .replace(
+          /[^a-z0-9]+/gi,
+          "-"
+        )
+        .toLowerCase();
+
+    const link =
+      document.createElement("a");
+
+    link.href = finalVideo;
+
+    link.download =
+      `${safeName}-full-video.mp4`;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
   };
 
   const downloadSceneVideo = () => {
@@ -970,6 +1135,8 @@ function App() {
       setGeneratedImages({});
 
       setGeneratedVideos({});
+
+      setFinalVideo(null);
     } catch {
       alert(
         "Could not load saved project."
@@ -987,6 +1154,8 @@ function App() {
     setGeneratedImages({});
 
     setGeneratedVideos({});
+
+    setFinalVideo(null);
   };
 
   const currentScene =
@@ -1462,6 +1631,199 @@ function App() {
               </div>
             </section>
 
+            {/* =========================
+                FULL VIDEO
+            ========================== */}
+
+            <section
+              style={{
+                marginBottom: 24,
+                padding: 20,
+                borderRadius: 16,
+                border:
+                  "1px solid rgba(255,255,255,.10)",
+                background:
+                  "rgba(255,255,255,.035)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  alignItems: "center",
+                  gap: 14,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <span
+                    className="section-number"
+                    style={{
+                      display:
+                        "inline-block",
+                      marginBottom: 8,
+                    }}
+                  >
+                    FINAL
+                  </span>
+
+                  <h3
+                    style={{
+                      margin:
+                        "0 0 6px",
+                    }}
+                  >
+                    🎬 Full Cartoon Video
+                  </h3>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      opacity: 0.65,
+                    }}
+                  >
+                    Merge all generated scene
+                    videos into one final MP4
+                    using local FFmpeg.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {finalVideo && (
+                    <button
+                      className="load-button"
+                      onClick={
+                        downloadFinalVideo
+                      }
+                    >
+                      ⬇ Download Full Video
+                    </button>
+                  )}
+
+                  <button
+                    className="generate-button"
+                    onClick={
+                      mergeAllSceneVideos
+                    }
+                    disabled={
+                      isMergingVideos
+                    }
+                  >
+                    {isMergingVideos
+                      ? "⏳ Merging Videos..."
+                      : finalVideo
+                      ? "🔄 Rebuild Full Video"
+                      : "🎬 Create Full Video"}
+                  </button>
+                </div>
+              </div>
+
+              {isMergingVideos && (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: 18,
+                    borderRadius: 14,
+                    textAlign: "center",
+                    background:
+                      "rgba(255,255,255,.04)",
+                    border:
+                      "1px solid rgba(255,255,255,.08)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 34,
+                      marginBottom: 8,
+                    }}
+                  >
+                    🎞️
+                  </div>
+
+                  <strong>
+                    Creating your full video...
+                  </strong>
+
+                  <p
+                    style={{
+                      opacity: 0.65,
+                      marginBottom: 0,
+                    }}
+                  >
+                    FFmpeg is merging the
+                    generated scene videos in
+                    the correct order. Please
+                    keep this page open.
+                  </p>
+                </div>
+              )}
+
+              {finalVideo && (
+                <div
+                  style={{
+                    marginTop: 18,
+                    overflow: "hidden",
+                    borderRadius: 14,
+                    border:
+                      "1px solid rgba(255,255,255,.10)",
+                    background: "#000",
+                  }}
+                >
+                  <video
+                    src={finalVideo}
+                    controls
+                    playsInline
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      maxHeight: 700,
+                      background: "#000",
+                    }}
+                  />
+                </div>
+              )}
+
+              {!finalVideo &&
+                !isMergingVideos && (
+                  <div
+                    style={{
+                      marginTop: 18,
+                      padding: 18,
+                      borderRadius: 14,
+                      background:
+                        "rgba(255,255,255,.025)",
+                      border:
+                        "1px dashed rgba(255,255,255,.12)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <strong>
+                      Generate all scene videos
+                      first
+                    </strong>
+
+                    <p
+                      style={{
+                        margin:
+                          "6px 0 0",
+                        opacity: 0.6,
+                      }}
+                    >
+                      Once every scene has an
+                      MP4, click “Create Full
+                      Video”.
+                    </p>
+                  </div>
+                )}
+            </section>
+
             <section className="characters-section">
               <div className="section-heading">
                 <div>
@@ -1630,8 +1992,7 @@ function App() {
                         setSelectedScene(
                           Math.max(
                             0,
-                            selectedScene -
-                              1
+                            selectedScene - 1
                           )
                         )
                       }
@@ -1663,8 +2024,7 @@ function App() {
                           Math.min(
                             project.scenes.length -
                               1,
-                            selectedScene +
-                              1
+                            selectedScene + 1
                           )
                         )
                       }
@@ -1882,8 +2242,8 @@ function App() {
                           }}
                         >
                           Turn the generated
-                          scene image into
-                          a free animated MP4
+                          scene image into a
+                          free animated MP4
                           using local FFmpeg.
                         </p>
                       </div>
@@ -1923,23 +2283,63 @@ function App() {
                           }
                         >
                           {isGeneratingVideo
-                            ? "⏳ Creating Free Video..."
+                            ? "⏳ Creating Video..."
                             : generatedVideos[
                                 currentScene
                                   .number
                               ]
-                            ? "🔄 Regenerate Free Video"
+                            ? "🔄 Regenerate Video"
                             : "🎥 Generate Free Video"}
                         </button>
                       </div>
                     </div>
-                                        {isGeneratingVideo && (
+
+                    {!generatedImages[
+                      currentScene.number
+                    ] &&
+                      !generatedVideos[
+                        currentScene.number
+                      ] && (
+                        <div
+                          style={{
+                            padding: 14,
+                            marginBottom: 14,
+                            borderRadius: 12,
+                            background:
+                              "rgba(255,190,70,.06)",
+                            border:
+                              "1px solid rgba(255,190,70,.15)",
+                          }}
+                        >
+                          <strong>
+                            First generate the
+                            scene image.
+                          </strong>
+
+                          <p
+                            style={{
+                              margin:
+                                "5px 0 0",
+                              opacity:
+                                0.65,
+                            }}
+                          >
+                            The free local video
+                            generator uses that
+                            image to create the
+                            MP4 animation.
+                          </p>
+                        </div>
+                      )}
+
+                    {isGeneratingVideo && (
                       <div
                         style={{
                           padding: 18,
                           marginBottom: 14,
                           borderRadius: 14,
-                          textAlign: "center",
+                          textAlign:
+                            "center",
                           background:
                             "rgba(255,255,255,.04)",
                           border:
@@ -1957,7 +2357,7 @@ function App() {
 
                         <strong>
                           Creating your free
-                          animated video...
+                          scene video...
                         </strong>
 
                         <p
@@ -1967,10 +2367,9 @@ function App() {
                           }}
                         >
                           Local FFmpeg is
-                          converting the scene
-                          image into an MP4.
-                          Please keep this page
-                          open.
+                          generating the MP4.
+                          Please keep this
+                          page open.
                         </p>
                       </div>
                     )}
@@ -2057,11 +2456,11 @@ function App() {
                                   0,
                               }}
                             >
-                              First generate
-                              the scene image,
-                              then click
-                              “Generate Free
-                              Video”.
+                              Generate the
+                              scene image
+                              first, then
+                              click “Generate
+                              Free Video”.
                             </p>
                           </div>
                         </div>
