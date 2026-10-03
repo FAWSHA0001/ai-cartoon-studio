@@ -61,6 +61,12 @@ function App() {
   const [isGeneratingImage, setIsGeneratingImage] =
     useState(false);
 
+  const [generatedVideos, setGeneratedVideos] =
+    useState<Record<number, string>>({});
+
+  const [isGeneratingVideo, setIsGeneratingVideo] =
+    useState(false);
+
   const getMinutes = () => {
     return Number(duration.split(" ")[0]);
   };
@@ -92,7 +98,8 @@ function App() {
     ) => {
       if (
         !characters.some(
-          (character) => character.name === name
+          (character) =>
+            character.name === name
         )
       ) {
         characters.push({
@@ -252,10 +259,12 @@ function App() {
     const phase = getPhase(scene, total);
 
     const main =
-      characters[0]?.name || "the main character";
+      characters[0]?.name ||
+      "the main character";
 
     const friend =
-      characters[1]?.name || "a helpful friend";
+      characters[1]?.name ||
+      "a helpful friend";
 
     if (phase === "Opening") {
       return `${main} begins the adventure in a beautiful cartoon world. The environment is introduced with warm cinematic visuals while something unusual begins to happen. Story idea: ${story}.`;
@@ -297,31 +306,37 @@ function App() {
         "The Story Begins",
         "A Curious Morning",
       ],
+
       Setup: [
         "The First Clue",
         "Something Strange",
         "A New Discovery",
       ],
+
       Discovery: [
         "The Secret Path",
         "Into the Unknown",
         "The Hidden Place",
       ],
+
       Adventure: [
         "The Big Adventure",
         "Across the Forest",
         "A Surprising Journey",
       ],
+
       Challenge: [
         "The Biggest Challenge",
         "Trouble Appears",
         "A Difficult Choice",
       ],
+
       Resolution: [
         "Finding the Answer",
         "Everything Changes",
         "The Solution",
       ],
+
       Ending: [
         "A Happy Ending",
         "A Lesson to Remember",
@@ -508,6 +523,8 @@ function App() {
 
       setGeneratedImages({});
 
+      setGeneratedVideos({});
+
       localStorage.setItem(
         "ai-cartoon-current-project",
         JSON.stringify(newProject)
@@ -522,9 +539,6 @@ function App() {
    *
    * Backend:
    * http://localhost:3001/api/generate-image
-   *
-   * Backend returns raw image bytes,
-   * therefore we use response.blob().
    */
   const generateSceneImage = async () => {
     if (!currentScene || !project) {
@@ -589,6 +603,205 @@ function App() {
     } finally {
       setIsGeneratingImage(false);
     }
+  };
+
+  /*
+   * FREE LOCAL VIDEO GENERATION
+   *
+   * Flow:
+   *
+   * Generated Scene Image
+   *        ↓
+   * Browser Blob
+   *        ↓
+   * Base64 Image
+   *        ↓
+   * Local Node Server
+   *        ↓
+   * FFmpeg
+   *        ↓
+   * MP4
+   *
+   * This does NOT use paid Veo.
+   */
+  const generateSceneVideo = async () => {
+    if (!currentScene || !project) {
+      return;
+    }
+
+    const imageUrl =
+      generatedImages[currentScene.number];
+
+    if (!imageUrl) {
+      alert(
+        "Please generate the scene image first."
+      );
+
+      return;
+    }
+
+    setIsGeneratingVideo(true);
+
+    try {
+      /*
+       * Convert the generated image object URL
+       * into a base64 data URL so the local
+       * backend can process the exact same image.
+       */
+      const imageResponse =
+        await fetch(imageUrl);
+
+      if (!imageResponse.ok) {
+        throw new Error(
+          "Could not read the generated scene image."
+        );
+      }
+
+      const imageBlob =
+        await imageResponse.blob();
+
+      const imageData =
+        await new Promise<string>(
+          (resolve, reject) => {
+            const reader =
+              new FileReader();
+
+            reader.onloadend = () => {
+              if (
+                typeof reader.result ===
+                "string"
+              ) {
+                resolve(reader.result);
+              } else {
+                reject(
+                  new Error(
+                    "Could not convert image to base64."
+                  )
+                );
+              }
+            };
+
+            reader.onerror = () => {
+              reject(
+                new Error(
+                  "Could not read scene image."
+                )
+              );
+            };
+
+            reader.readAsDataURL(
+              imageBlob
+            );
+          }
+        );
+
+      const response = await fetch(
+        "http://localhost:3001/api/generate-video",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            imageData,
+
+            prompt:
+              currentScene.videoPrompt,
+
+            sceneNumber:
+              currentScene.number,
+
+            duration:
+              Math.min(
+                Math.max(
+                  currentScene.duration,
+                  1
+                ),
+                10
+              ),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data =
+          await response.json().catch(
+            () => null
+          );
+
+        throw new Error(
+          data?.error ||
+            "Free video generation failed."
+        );
+      }
+
+      const blob =
+        await response.blob();
+
+      const videoUrl =
+        URL.createObjectURL(blob);
+
+      setGeneratedVideos(
+        (previous) => {
+          const oldVideo =
+            previous[
+              currentScene.number
+            ];
+
+          if (oldVideo) {
+            URL.revokeObjectURL(
+              oldVideo
+            );
+          }
+
+          return {
+            ...previous,
+
+            [currentScene.number]:
+              videoUrl,
+          };
+        }
+      );
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Free video generation failed."
+      );
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  };
+
+  const downloadSceneVideo = () => {
+    if (!currentScene) {
+      return;
+    }
+
+    const videoUrl =
+      generatedVideos[
+        currentScene.number
+      ];
+
+    if (!videoUrl) {
+      return;
+    }
+
+    const link =
+      document.createElement("a");
+
+    link.href = videoUrl;
+
+    link.download =
+      `scene-${currentScene.number}.mp4`;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
   };
 
   const copyText = async (
@@ -755,6 +968,8 @@ function App() {
       setSelectedScene(0);
 
       setGeneratedImages({});
+
+      setGeneratedVideos({});
     } catch {
       alert(
         "Could not load saved project."
@@ -770,6 +985,8 @@ function App() {
     setSelectedScene(0);
 
     setGeneratedImages({});
+
+    setGeneratedVideos({});
   };
 
   const currentScene =
@@ -1438,15 +1655,13 @@ function App() {
                       className="load-button"
                       disabled={
                         selectedScene ===
-                        project.scenes
-                          .length -
+                        project.scenes.length -
                           1
                       }
                       onClick={() =>
                         setSelectedScene(
                           Math.min(
-                            project.scenes
-                              .length -
+                            project.scenes.length -
                               1,
                             selectedScene +
                               1
@@ -1457,6 +1672,10 @@ function App() {
                       Next Scene →
                     </button>
                   </div>
+
+                  {/* =========================
+                      AI IMAGE
+                  ========================== */}
 
                   <div
                     style={{
@@ -1616,6 +1835,243 @@ function App() {
                       </div>
                     )}
                   </div>
+
+                  {/* =========================
+                      FREE LOCAL VIDEO
+                  ========================== */}
+
+                  <div
+                    style={{
+                      marginBottom: 22,
+                      padding: 18,
+                      borderRadius: 16,
+                      border:
+                        "1px solid rgba(255,255,255,.10)",
+                      background:
+                        "rgba(255,255,255,.035)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        alignItems:
+                          "center",
+                        gap: 12,
+                        flexWrap:
+                          "wrap",
+                        marginBottom: 14,
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{
+                            fontSize: 17,
+                          }}
+                        >
+                          🎥 Free Scene Video
+                        </strong>
+
+                        <p
+                          style={{
+                            margin:
+                              "5px 0 0",
+                            opacity:
+                              0.65,
+                          }}
+                        >
+                          Turn the generated
+                          scene image into
+                          a free animated MP4
+                          using local FFmpeg.
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap:
+                            "wrap",
+                        }}
+                      >
+                        {generatedVideos[
+                          currentScene.number
+                        ] && (
+                          <button
+                            className="load-button"
+                            onClick={
+                              downloadSceneVideo
+                            }
+                          >
+                            ⬇ Download Video
+                          </button>
+                        )}
+
+                        <button
+                          className="load-button"
+                          onClick={
+                            generateSceneVideo
+                          }
+                          disabled={
+                            isGeneratingVideo ||
+                            !generatedImages[
+                              currentScene
+                                .number
+                            ]
+                          }
+                        >
+                          {isGeneratingVideo
+                            ? "⏳ Creating Free Video..."
+                            : generatedVideos[
+                                currentScene
+                                  .number
+                              ]
+                            ? "🔄 Regenerate Free Video"
+                            : "🎥 Generate Free Video"}
+                        </button>
+                      </div>
+                    </div>
+                                        {isGeneratingVideo && (
+                      <div
+                        style={{
+                          padding: 18,
+                          marginBottom: 14,
+                          borderRadius: 14,
+                          textAlign: "center",
+                          background:
+                            "rgba(255,255,255,.04)",
+                          border:
+                            "1px solid rgba(255,255,255,.08)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 34,
+                            marginBottom: 8,
+                          }}
+                        >
+                          🎬
+                        </div>
+
+                        <strong>
+                          Creating your free
+                          animated video...
+                        </strong>
+
+                        <p
+                          style={{
+                            opacity: 0.65,
+                            marginBottom: 0,
+                          }}
+                        >
+                          Local FFmpeg is
+                          converting the scene
+                          image into an MP4.
+                          Please keep this page
+                          open.
+                        </p>
+                      </div>
+                    )}
+
+                    {generatedVideos[
+                      currentScene.number
+                    ] ? (
+                      <div
+                        style={{
+                          overflow:
+                            "hidden",
+                          borderRadius:
+                            14,
+                          border:
+                            "1px solid rgba(255,255,255,.10)",
+                          background:
+                            "#000",
+                        }}
+                      >
+                        <video
+                          src={
+                            generatedVideos[
+                              currentScene
+                                .number
+                            ]
+                          }
+                          controls
+                          playsInline
+                          style={{
+                            display:
+                              "block",
+                            width:
+                              "100%",
+                            maxHeight:
+                              620,
+                            background:
+                              "#000",
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      !isGeneratingVideo && (
+                        <div
+                          style={{
+                            minHeight:
+                              220,
+                            display:
+                              "grid",
+                            placeItems:
+                              "center",
+                            textAlign:
+                              "center",
+                            borderRadius:
+                              14,
+                            border:
+                              "1px dashed rgba(255,255,255,.14)",
+                            background:
+                              "rgba(0,0,0,.12)",
+                            padding: 24,
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                fontSize:
+                                  42,
+                                marginBottom:
+                                  10,
+                              }}
+                            >
+                              🎥
+                            </div>
+
+                            <strong>
+                              No scene video
+                              generated yet
+                            </strong>
+
+                            <p
+                              style={{
+                                opacity:
+                                  0.6,
+                                marginBottom:
+                                  0,
+                              }}
+                            >
+                              First generate
+                              the scene image,
+                              then click
+                              “Generate Free
+                              Video”.
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  {/* =========================
+                      PROMPTS
+                  ========================== */}
 
                   <div className="production-grid">
                     <div className="production-box">

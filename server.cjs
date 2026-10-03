@@ -1,14 +1,40 @@
 const http = require("http");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { spawn } = require("child_process");
 
 const PORT = 3001;
 const API_KEY = process.env.POLLINATIONS_API_KEY;
+
+// ==========================================
+// FFMPEG
+// ==========================================
+
+const FFMPEG_PATH =
+  process.env.FFMPEG_PATH ||
+  path.join(
+    process.env.HOME || os.homedir(),
+    "ffmpeg",
+    "bin",
+    "ffmpeg"
+  );
+
+// ==========================================
+// ENV CHECK
+// ==========================================
 
 if (!API_KEY) {
   console.error(
     "Missing POLLINATIONS_API_KEY environment variable."
   );
+
   process.exit(1);
 }
+
+// ==========================================
+// HELPERS
+// ==========================================
 
 const sendJson = (res, status, data) => {
   res.writeHead(status, {
@@ -19,7 +45,128 @@ const sendJson = (res, status, data) => {
   res.end(JSON.stringify(data));
 };
 
+const readRequestBody = (req) => {
+  return new Promise((resolve, reject) => {
+    let body = "";
+
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on("end", () => {
+      resolve(body);
+    });
+
+    req.on("error", reject);
+  });
+};
+
+const runFFmpeg = (args) => {
+  return new Promise((resolve, reject) => {
+    console.log(
+      "Starting FFmpeg:",
+      FFMPEG_PATH,
+      args.join(" ")
+    );
+
+    const process = spawn(FFMPEG_PATH, args);
+
+    let stdout = "";
+    let stderr = "";
+
+    process.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    process.stderr.on("data", (data) => {
+      const text = data.toString();
+
+      stderr += text;
+
+      if (
+        text.includes("frame=") ||
+        text.includes("time=") ||
+        text.includes("speed=")
+      ) {
+        process.stdout.write(text);
+      }
+    });
+
+    process.on("error", (error) => {
+      reject(error);
+    });
+
+    process.on("close", (code) => {
+      if (code === 0) {
+        resolve({
+          stdout,
+          stderr,
+        });
+      } else {
+        reject(
+          new Error(
+            `FFmpeg exited with code ${code}\n${stderr}`
+          )
+        );
+      }
+    });
+  });
+};
+
+// ==========================================
+// DATA URL IMAGE DECODER
+// ==========================================
+
+const saveBase64Image = (imageData, filePath) => {
+  if (!imageData || typeof imageData !== "string") {
+    throw new Error(
+      "Generated image data is missing."
+    );
+  }
+
+  let base64Data = imageData;
+
+  // Supports:
+  // data:image/png;base64,....
+  // data:image/jpeg;base64,....
+  // data:image/webp;base64,....
+  if (imageData.includes(",")) {
+    base64Data = imageData.split(",")[1];
+  }
+
+  base64Data = base64Data
+    .replace(/\s/g, "")
+    .trim();
+
+  if (!base64Data) {
+    throw new Error(
+      "Generated image data is empty."
+    );
+  }
+
+  const imageBuffer =
+    Buffer.from(base64Data, "base64");
+
+  if (!imageBuffer.length) {
+    throw new Error(
+      "Could not decode generated image."
+    );
+  }
+
+  fs.writeFileSync(filePath, imageBuffer);
+
+  return imageBuffer;
+};
+
+// ==========================================
+// SERVER
+// ==========================================
+
 const server = http.createServer(async (req, res) => {
+  // ==========================================
+  // CORS
+  // ==========================================
+
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
@@ -31,98 +178,475 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ==========================================
+  // AI IMAGE GENERATION
+  // ==========================================
+
   if (
     req.method === "POST" &&
     req.url === "/api/generate-image"
   ) {
-    let body = "";
+    try {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body);
 
-    req.on("data", (chunk) => {
-      body += chunk.toString();
-    });
+      const prompt = String(
+        parsed.prompt || ""
+      ).trim();
 
-    req.on("end", async () => {
-      try {
-        const parsed = JSON.parse(body);
-
-        const prompt = String(
-          parsed.prompt || ""
-        ).trim();
-
-        if (!prompt) {
-          sendJson(res, 400, {
-            error: "Image prompt is required.",
-          });
-
-          return;
-        }
-
-        const model = "flux";
-
-        const imageUrl =
-          "https://gen.pollinations.ai/image/" +
-          encodeURIComponent(prompt) +
-          `?model=${encodeURIComponent(model)}`;
-
-        const imageResponse = await fetch(imageUrl, {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
-          },
+      if (!prompt) {
+        sendJson(res, 400, {
+          error: "Image prompt is required.",
         });
 
-        if (!imageResponse.ok) {
-          const errorText =
-            await imageResponse.text();
+        return;
+      }
 
-          console.error(
-            "Pollinations error:",
-            errorText
-          );
+      const model = "flux";
 
-          sendJson(res, 500, {
-            error:
-              "Pollinations image generation failed.",
-          });
+      console.log("");
+      console.log(
+        "=========================================="
+      );
+      console.log(
+        `Generating AI image with model=${model}`
+      );
+      console.log(
+        "=========================================="
+      );
 
-          return;
-        }
+      const imageUrl =
+        "https://gen.pollinations.ai/image/" +
+        encodeURIComponent(prompt) +
+        `?model=${encodeURIComponent(model)}`;
 
-        const imageBuffer = Buffer.from(
-          await imageResponse.arrayBuffer()
+      const imageResponse = await fetch(imageUrl, {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+        },
+      });
+
+      if (!imageResponse.ok) {
+        const errorText =
+          await imageResponse.text();
+
+        console.error(
+          "Pollinations image error:",
+          errorText
         );
-
-        res.writeHead(200, {
-          "Content-Type":
-            imageResponse.headers.get(
-              "content-type"
-            ) || "image/jpeg",
-          "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": "*",
-        });
-
-        res.end(imageBuffer);
-      } catch (error) {
-        console.error(error);
 
         sendJson(res, 500, {
           error:
-            error instanceof Error
-              ? error.message
-              : "Image generation failed.",
+            "Pollinations image generation failed.",
+          details:
+            errorText ||
+            "Unknown image generation error.",
         });
+
+        return;
       }
-    });
+
+      const imageBuffer = Buffer.from(
+        await imageResponse.arrayBuffer()
+      );
+
+      console.log(
+        `Image generated successfully: ${(
+          imageBuffer.length /
+          1024 /
+          1024
+        ).toFixed(2)} MB`
+      );
+
+      res.writeHead(200, {
+        "Content-Type":
+          imageResponse.headers.get(
+            "content-type"
+          ) || "image/jpeg",
+
+        "Cache-Control": "no-store",
+
+        "Access-Control-Allow-Origin": "*",
+
+        "Content-Length":
+          imageBuffer.length,
+      });
+
+      res.end(imageBuffer);
+    } catch (error) {
+      console.error(
+        "Image generation error:",
+        error
+      );
+
+      sendJson(res, 500, {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Image generation failed.",
+      });
+    }
 
     return;
   }
+
+  // ==========================================
+  // FREE LOCAL VIDEO GENERATION
+  //
+  // Flow:
+  //
+  // Existing generated image
+  //          ↓
+  //       Base64
+  //          ↓
+  //       Local FFmpeg
+  //          ↓
+  //      Animated MP4
+  //
+  // NO NEW AI IMAGE
+  // NO PAID VIDEO API
+  // ==========================================
+
+  if (
+    req.method === "POST" &&
+    req.url === "/api/generate-video"
+  ) {
+    let tempImagePath = null;
+    let outputVideoPath = null;
+
+    try {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body);
+
+      const prompt = String(
+        parsed.prompt || ""
+      ).trim();
+
+      const imageData = String(
+        parsed.imageData || ""
+      ).trim();
+
+      // ========================================
+      // VALIDATE IMAGE
+      // ========================================
+
+      if (!imageData) {
+        sendJson(res, 400, {
+          error:
+            "Generated scene image is required. Please generate the scene image first.",
+        });
+
+        return;
+      }
+
+      // ========================================
+      // DURATION
+      // ========================================
+
+      const requestedDuration =
+        Number(parsed.duration);
+
+      const duration =
+        Number.isFinite(
+          requestedDuration
+        ) && requestedDuration > 0
+          ? Math.min(
+              Math.max(requestedDuration, 1),
+              10
+            )
+          : 5;
+
+      console.log("");
+      console.log(
+        "=========================================="
+      );
+      console.log(
+        "FREE LOCAL VIDEO RENDER"
+      );
+      console.log(
+        "=========================================="
+      );
+
+      console.log(
+        `Duration: ${duration}s`
+      );
+
+      console.log(
+        "Source: Existing generated scene image"
+      );
+
+      console.log(
+        "Video model: Local FFmpeg"
+      );
+
+      console.log(
+        "Encoder: h264_videotoolbox"
+      );
+
+      if (prompt) {
+        console.log(
+          `Scene prompt: ${prompt}`
+        );
+      }
+
+      // ========================================
+      // TEMP FILE NAMES
+      // ========================================
+
+      const tempId =
+        `${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}`;
+
+      tempImagePath = path.join(
+        os.tmpdir(),
+        `ai-cartoon-${tempId}.jpg`
+      );
+
+      outputVideoPath = path.join(
+        os.tmpdir(),
+        `ai-cartoon-${tempId}.mp4`
+      );
+
+      // ========================================
+      // STEP 1 — SAVE EXISTING IMAGE
+      // ========================================
+
+      console.log(
+        "Step 1/2: Using existing generated scene image..."
+      );
+
+      const imageBuffer =
+        saveBase64Image(
+          imageData,
+          tempImagePath
+        );
+
+      console.log(
+        `Scene image saved: ${(
+          imageBuffer.length /
+          1024 /
+          1024
+        ).toFixed(2)} MB`
+      );
+
+      console.log(
+        `Temporary image: ${tempImagePath}`
+      );
+
+      // ========================================
+      // STEP 2 — FFMPEG ANIMATION
+      // ========================================
+
+      console.log(
+        "Step 2/2: Rendering animated MP4..."
+      );
+
+      const fps = 25;
+
+      const totalFrames =
+        Math.max(
+          1,
+          Math.round(duration * fps)
+        );
+
+      /*
+        Animation:
+
+        - Existing scene image
+        - 1280x720 output
+        - cinematic slow zoom
+        - centered camera movement
+        - 25 FPS
+        - H.264 VideoToolbox
+        - yuv420p
+      */
+
+      const videoFilter =
+        `scale=1280:720:force_original_aspect_ratio=increase,` +
+        `crop=1280:720,` +
+        `zoompan=` +
+        `z='min(zoom+0.0012,1.12)':` +
+        `x='iw/2-(iw/zoom/2)':` +
+        `y='ih/2-(ih/zoom/2)':` +
+        `d=${totalFrames}:` +
+        `s=1280x720:` +
+        `fps=${fps},` +
+        `format=yuv420p`;
+
+      const ffmpegArgs = [
+        "-y",
+
+        "-loop",
+        "1",
+
+        "-i",
+        tempImagePath,
+
+        "-vf",
+        videoFilter,
+
+        "-t",
+        String(duration),
+
+        "-r",
+        String(fps),
+
+        "-c:v",
+        "h264_videotoolbox",
+
+        "-pix_fmt",
+        "yuv420p",
+
+        "-movflags",
+        "+faststart",
+
+        outputVideoPath,
+      ];
+
+      await runFFmpeg(ffmpegArgs);
+
+      // ========================================
+      // VERIFY VIDEO
+      // ========================================
+
+      if (
+        !fs.existsSync(outputVideoPath)
+      ) {
+        throw new Error(
+          "FFmpeg finished but the video file was not created."
+        );
+      }
+
+      const videoBuffer =
+        fs.readFileSync(
+          outputVideoPath
+        );
+
+      if (!videoBuffer.length) {
+        throw new Error(
+          "Generated video file is empty."
+        );
+      }
+
+      console.log(
+        `Video rendered successfully: ${(
+          videoBuffer.length /
+          1024 /
+          1024
+        ).toFixed(2)} MB`
+      );
+
+      console.log(
+        "=========================================="
+      );
+
+      console.log(
+        "VIDEO COMPLETE"
+      );
+
+      console.log(
+        "=========================================="
+      );
+
+      console.log("");
+
+      // ========================================
+      // RETURN MP4
+      // ========================================
+
+      res.writeHead(200, {
+        "Content-Type": "video/mp4",
+
+        "Cache-Control": "no-store",
+
+        "Access-Control-Allow-Origin": "*",
+
+        "Content-Length":
+          videoBuffer.length,
+      });
+
+      res.end(videoBuffer);
+    } catch (error) {
+      console.error(
+        "Local video rendering error:",
+        error
+      );
+
+      sendJson(res, 500, {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Local video rendering failed.",
+      });
+    } finally {
+      // ========================================
+      // CLEANUP IMAGE
+      // ========================================
+
+      try {
+        if (
+          tempImagePath &&
+          fs.existsSync(tempImagePath)
+        ) {
+          fs.unlinkSync(tempImagePath);
+
+          console.log(
+            "Temporary image deleted."
+          );
+        }
+      } catch (cleanupError) {
+        console.error(
+          "Temporary image cleanup failed:",
+          cleanupError
+        );
+      }
+
+      // ========================================
+      // CLEANUP VIDEO
+      // ========================================
+
+      try {
+        if (
+          outputVideoPath &&
+          fs.existsSync(outputVideoPath)
+        ) {
+          fs.unlinkSync(outputVideoPath);
+
+          console.log(
+            "Temporary video deleted."
+          );
+        }
+      } catch (cleanupError) {
+        console.error(
+          "Temporary video cleanup failed:",
+          cleanupError
+        );
+      }
+    }
+
+    return;
+  }
+
+  // ==========================================
+  // NOT FOUND
+  // ==========================================
 
   sendJson(res, 404, {
     error: "Not found.",
   });
 });
 
+// ==========================================
+// START SERVER
+// ==========================================
+
 server.listen(PORT, () => {
   console.log(
-    `AI Cartoon Studio image server running at http://localhost:${PORT}`
+    `AI Cartoon Studio server running at http://localhost:${PORT}`
+  );
+
+  console.log(
+    `FFmpeg path: ${FFMPEG_PATH}`
   );
 });
